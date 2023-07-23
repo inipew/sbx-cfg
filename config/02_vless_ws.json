@@ -11,12 +11,8 @@
       "proxy_protocol_accept_no_header": false,
       "users": [
         {
-          "name": "pew",
+          "name": "default",
           "uuid": "d774d7b8-3506-4cbb-ab8f-87de7ac26dg4"
-        },
-        {
-          "name": "stb",
-          "uuid": "1d000715-0cf7-4629-a0bb-87de7ac26dg4"
         }
       ],
       "transport": {
