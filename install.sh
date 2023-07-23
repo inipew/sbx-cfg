@@ -479,7 +479,7 @@ download_sing-box() {
         SING_BOX_VERSION=$1
         local SING_BOX_VERSION_TEMP="v${SING_BOX_VERSION}"
     else
-        local SING_BOX_VERSION_TEMP=$(curl -Ls "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        local SING_BOX_VERSION_TEMP=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases | jq -r ".[]|select (.prerelease==false)|.tag_name" | head -1)
         SING_BOX_VERSION=${SING_BOX_VERSION_TEMP:1}
     fi
     LOGI "Version:${SING_BOX_VERSION}"
@@ -499,31 +499,30 @@ download_sing-box() {
 }
 
 #backup config，this will be called when update sing-box
-backup_config() {
-    LOGD "Start backing up the sing-box configuration file..."
-    for file in "${FILE_LIST[@]}"; do
-        if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
-            LOGE "There are currently no configuration files to back up"
-            return 0
-        else
-            mv ${CONFIG_FILE_PATH}/${file} ${CONFIG_BACKUP_PATH}/${file}.bak
-        fi
-    done
-    LOGD "Backup sing-box configuration file completed"
-}
-
-#backup config，this will be called when update sing-box
-restore_config() {
-    LOGD "Start restoring the sing-box configuration file..."
-    for file in "${FILE_LIST[@]}"; do
-        if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
-            LOGE "There are currently no configuration files to back up"
-            return 0
-        else
-            mv ${CONFIG_FILE_PATH}/${file}.bak ${CONFIG_BACKUP_PATH}/${file}
-        fi
-    done
-    LOGD "Restoring the sing-box configuration file is complete"
+backup_restore_config() {
+    if [[ "$1" == "1" ]]; then
+        LOGD "Start backing up the sing-box configuration file..."
+        for file in "${FILE_LIST[@]}"; do
+            if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
+                LOGE "There are currently no configuration files to back up"
+                return 0
+            else
+                mv ${CONFIG_FILE_PATH}/${file} ${CONFIG_BACKUP_PATH}/${file}.bak
+            fi
+        done
+        LOGD "Backup sing-box configuration file completed"
+    elif [[ "$1" == "2" ]]; then
+        LOGD "Start restoring the sing-box configuration file..."
+        for file in "${FILE_LIST[@]}"; do
+            if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
+                LOGE "There are currently no configuration files to back up"
+                return 0
+            else
+                mv ${CONFIG_BACKUP_PATH}/${file}.bak ${CONFIG_FILE_PATH}/${file}
+            fi
+        done
+        LOGD "Restoring the sing-box configuration file is complete"
+    fi
 }
 
 #install sing-box,in this function we will download binary,paremete $1 will be used as version if it's given
@@ -575,14 +574,14 @@ update_sing-box() {
         show_menu
     fi
     #here we need back up config first,and then restore it after installation
-    backup_config
+    backup_restore_config 1
     #get the version paremeter
     if [[ $# -ne 0 ]]; then
         install_sing-box $1
     else
         install_sing-box
     fi
-    restore_config
+    backup_restore_config 2
     if ! systemctl restart sing-box; then
         LOGE "update sing-box failed,please check logs"
         show_menu
@@ -966,6 +965,7 @@ show_manageAccount(){
     echo -e "${green}2.${plain} Remove an user"
     echo -e "${green}3.${plain} View account detail"
     echo -e "${green}4.${plain} List User"
+    echo "------------------------------------------"
     echo && read -p "Please enter your choice[0-4]: " num
 
     case "${num}" in
@@ -1035,6 +1035,8 @@ show_log_menu(){
     echo -e "${green}0.${plain} Back to Menu"
     echo -e "${green}1.${plain} Show sing-box log"
     echo -e "${green}2.${plain} Clear sing-box log"
+    echo -e "${green}3.${plain} Set sing-box to clear logs & reboot regularly"
+    echo -e "${green}4.${plain} Cancel sing-box timer to clear logs & reboot"
     echo "------------------------------------------"
     echo && read -p "Please enter your choice[0-2]: " num
 
@@ -1048,6 +1050,12 @@ show_log_menu(){
     2)
         clear_log && show_menu
         ;;
+    3)
+        enable_auto_clear_log
+        ;;
+    4)
+        disable_auto_clear_log
+        ;;
     *)
         LOGE "Please enter the correct option [0-2]"
         ;;
@@ -1059,10 +1067,8 @@ show_boot_menu(){
     echo -e "${green}0.${plain} Back to Menu"
     echo -e "${green}1.${plain} Setting the sing-box to boot up"
     echo -e "${green}2.${plain} Cancel sing-box boot-up"
-    echo -e "${green}3.${plain} Set sing-box to clear logs & reboot regularly"
-    echo -e "${green}4.${plain} Cancel sing-box timer to clear logs & reboot"
     echo "------------------------------------------"
-    echo && read -p "Please enter your choice[0-4]: " num
+    echo && read -p "Please enter your choice[0-2]: " num
 
     case "${num}" in
     0)
@@ -1074,14 +1080,8 @@ show_boot_menu(){
     2)
         disable_sing-box && show_menu
         ;;
-    3)
-        enable_auto_clear_log
-        ;;
-    4)
-        disable_auto_clear_log
-        ;;
     *)
-        LOGE "Please enter the correct option [0-4]"
+        LOGE "Please enter the correct option [0-2]"
         ;;
     esac
 }
