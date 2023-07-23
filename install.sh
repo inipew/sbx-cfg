@@ -59,6 +59,12 @@ FILE_LIST=(
     "11_ipv4_outbouds.json"
     "12_routing.json"
 )
+ACCOUNT_FILE_LIST=(
+        "02_vless_ws.json"
+        "03_vmess_ws.json"
+        "04_trojan_ws.json"
+    )
+
 #sing-box status define
 declare -r SING_BOX_STATUS_RUNNING=1
 declare -r SING_BOX_STATUS_NOT_RUNNING=0
@@ -183,16 +189,16 @@ show_status() {
         show_sing_box_version
         echo -e "[INF] sing-box status: ${yellow}not running${plain}"
         show_enable_status
-        LOGI "Configuration file path:${CONFIG_FILE_PATH}"
-        LOGI "Executable file path:${BINARY_FILE_PATH}"
+        LOGI "Configuration file path: ${CONFIG_FILE_PATH}"
+        LOGI "Executable file path: ${BINARY_FILE_PATH}"
         ;;
     1)
         show_sing_box_version
         echo -e "[INF] sing-box status: ${green}running${plain}"
         show_enable_status
         show_running_status
-        LOGI "Configuration file path:${CONFIG_FILE_PATH}"
-        LOGI "Executable file path:${BINARY_FILE_PATH}"
+        LOGI "Configuration file path: ${CONFIG_FILE_PATH}"
+        LOGI "Executable file path: ${BINARY_FILE_PATH}"
         ;;
     255)
         echo -e "[INF] sing-box status: ${red}Not Installed${plain}"
@@ -208,9 +214,9 @@ show_running_status() {
         local runTime=$(systemctl status sing-box | grep Active | awk '{for (i=5;i<=NF;i++)printf("%s ", $i);print ""}')
         local memCheck=$(cat /proc/${pid}/status | grep -i vmrss | awk '{print $2,$3}')
         LOGI "##########################################"
-        LOGI "ProcessID:${pid}"
+        LOGI "ProcessID: ${pid}"
         LOGI "Running time：${runTime}"
-        LOGI "Memory usage:${memCheck}"
+        LOGI "Memory usage: ${memCheck}"
         LOGI "##########################################"
     else
         LOGE "sing-box not running"
@@ -219,7 +225,7 @@ show_running_status() {
 
 #show sing-box version
 show_sing_box_version() {
-    LOGI "Version Information:$(${BINARY_FILE_PATH} version)"
+    LOGI "Version Information: $(${BINARY_FILE_PATH} version)"
 }
 
 #show sing-box enable status,enabled means sing-box can auto start when system boot on
@@ -265,9 +271,9 @@ create_or_delete_path() {
 #install some common utils
 install_base() {
     if [[ ${OS_RELEASE} == "ubuntu" || ${OS_RELEASE} == "debian" ]]; then
-        apt install wget tar jq -y
+        apt install wget tar jq moreutils -y
     elif [[ ${OS_RELEASE} == "centos" ]]; then
-        yum install wget tar jq -y
+        yum install wget tar jq moreutils -y
     fi
 }
 
@@ -548,6 +554,139 @@ disable_sing-box() {
         LOGE "Canceling sing-box boot-up failure"
     fi
 }
+user_exists() {
+    local name_to_check=$1
+    local filepath=$2
+    if jq --arg name "$name_to_check" '.inbounds[0].users | map(select(.name == $name)) | length > 0' "${filepath}" >/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+add_new_account(){
+    read -r -p "Enter the name for the new user: " username
+    uuid=$(/usr/local/bin/sing-box generate uuid)
+
+    for file in "${ACCOUNT_FILE_LIST[@]}"; do
+        if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
+            LOGE "There are currently no ${CONFIG_FILE_PATH}/${file} configuration files"
+            return 0
+        else
+            local result=$(jq --arg name "${username}" '.inbounds[0].users | map(select(.name == $name)) | length > 0' "${CONFIG_FILE_PATH}/${file}")
+            if [[ $result == "false" ]]; then
+                case "${file}" in
+                "02_vless_ws.json")
+                    jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
+                    ;;
+                "03_vmess_ws.json")
+                    jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid,"alterId": 0}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
+                    ;;
+                "04_trojan_ws.json")
+                    jq --arg name "$username" --arg password "$uuid" '.inbounds[0].users += [{"name": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
+                    ;;
+                *)
+                    echo "Unknown configuration file: ${file}"
+                    ;;
+                esac
+            else
+                echo "User ${username} already exists in the ${CONFIG_FILE_PATH}/${file}."
+            fi
+        fi
+    done
+    echo -e "Account has successfully created."
+    restart_sing-box
+}
+
+display_users() {
+    echo "List of users:"
+    jq -r '.inbounds[0].users | to_entries | map("\(.key + 1). \(.value.name)") | .[]' ${CONFIG_FILE_PATH}/02_vless_ws.json
+}
+delete_user() {
+    selected_number=$1
+    for file in "${ACCOUNT_FILE_LIST[@]}"; do
+        if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
+            LOGE "There are currently no ${CONFIG_FILE_PATH}/${file} configuration files"
+            return 0
+        else
+            jq --argjson index "$selected_number" 'del(.inbounds[0].users[$index - 1]) | .inbounds[0].users |= map(select(. != null))' "${CONFIG_FILE_PATH}/${file}"|sponge "${CONFIG_FILE_PATH}/${file}"
+        fi
+    done
+    restart_sing-box
+}
+remove_an_account(){
+    display_users
+    read -p "Enter the number of the user you want to delete: " selected_number
+    if [[ $selected_number =~ ^[0-9]+$ ]]; then
+        total_users=$(jq '.inbounds[0].users | length' "${CONFIG_FILE_PATH}/02_vless_ws.json")
+        if ((selected_number >= 1 && selected_number <= total_users)); then
+            delete_user "$selected_number"
+            echo "User number $selected_number has been deleted."
+        else
+            echo "Invalid selection. Please choose a number between 1 and $total_users."
+        fi
+    else
+        echo "Invalid input. Please enter a valid number."
+    fi
+}
+show_user_details(){
+    selected_number=$1
+    for file in "${ACCOUNT_FILE_LIST[@]}"; do
+        if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
+            LOGE "There are currently no ${CONFIG_FILE_PATH}/${file} configuration files"
+            return 0
+        else
+            jq --argjson index "$selected_number" '.inbounds[0].users[$index - 1]' "${CONFIG_FILE_PATH}/${file}"
+        fi
+    done
+}
+show_account_details(){
+    display_users
+    read -p "Please enter your choice[0-4]:" num
+    if [[ $num =~ ^[0-9]+$ ]]; then
+        total_users=$(jq '.inbounds[0].users | length' "${CONFIG_FILE_PATH}/02_vless_ws.json")
+        if ((num >= 1 && num <= total_users)); then
+            # Valid selection, proceed with showing user details
+            echo "User details: "
+            show_user_details "$num"
+        else
+            echo "Invalid selection. Please choose a number between 1 and $total_users."
+        fi
+    else
+        echo "Invalid input. Please enter a valid number."
+    fi
+}
+show_manageAccount(){
+    echo "Account Management: "
+    echo "------------------------------------------"
+    echo -e "${green}0.${plain} Back"
+    echo -e "${green}1.${plain} Add new user"
+    echo -e "${green}2.${plain} Remove an user"
+    echo -e "${green}3.${plain} View account detail"
+    echo -e "${green}4.${plain} List User"
+    echo && read -p "Please enter your choice[0-4]: " num
+
+    case "${num}" in
+    0)
+        show_manageAccount
+        ;;
+    1)
+        add_new_account && show_manageAccount
+        ;;
+    2)
+        remove_an_account && show_manageAccount
+        ;;
+    3)
+        show_account_details && show_manageAccount
+        ;;
+    4)
+        display_users && show_manageAccount
+        ;;
+    *)
+        LOGE "Please enter the correct option [0-3]"
+        ;;
+    esac
+}
 
 #show logs
 show_log() {
@@ -673,38 +812,22 @@ show_help() {
     echo "sing-box uninstall    - Uninstalling the sing-box service"
     echo "------------------------------------------"
 }
-
-#show menu
-show_menu() {
-    echo -e "
-  ${green}sing-box-v${SING_BOX_YES_VERSION} Management Scripts${plain}
-  ${green}0.${plain} Exit Script
-————————————————
-  ${green}1.${plain} Installing the sing-box service
-  ${green}2.${plain} Updating the sing-box service
-  ${green}3.${plain} Uninstalling the sing-box service
-  ${green}4.${plain} Start the sing-box service
-  ${green}5.${plain} Stop sing-box service
-  ${green}6.${plain} Restart the sing-box service
-  ${green}7.${plain} Viewing sing-box status
-  ${green}8.${plain} Viewing the sing-box log
-  ${green}9.${plain} Clear the sing-box log
-  ${green}A.${plain} Checking the sing-box configuration
-————————————————
-  ${green}B.${plain} Setting the sing-box to boot up
-  ${green}C.${plain} Cancel sing-box boot-up
-  ${green}D.${plain} Set sing-box to clear logs & reboot regularly
-  ${green}E.${plain} Cancel sing-box timer to clear logs & reboot
-————————————————
-  ${green}F.${plain} 一Key to turn on bbr 
-  ${green}G.${plain} 一Key to apply for an SSL certificate
- "
-    show_status
-    echo && read -p "Please enter your choice[0-G]:" num
+show_core_menu(){
+    echo "Sing-box Core Management"
+    echo "------------------------------------------"
+    echo -e "${green}0.${plain} Back to Menu"
+    echo -e "${green}1.${plain} Installing the sing-box service"
+    echo -e "${green}2.${plain} Updating the sing-box service"
+    echo -e "${green}3.${plain} Uninstalling the sing-box service"
+    echo -e "${green}4.${plain} Start the sing-box service"
+    echo -e "${green}5.${plain} Stop sing-box service"
+    echo -e "${green}6.${plain} Restart the sing-box service"
+    echo "------------------------------------------"
+    echo && read -p "Please enter your choice[0-6]: " num
 
     case "${num}" in
     0)
-        exit 0
+        show_menu
         ;;
     1)
         install_sing-box && show_menu
@@ -724,38 +847,136 @@ show_menu() {
     6)
         restart_sing-box && show_menu
         ;;
-    7)
+    *)
+        LOGE "Please enter the correct option [0-6]"
+        ;;
+    esac
+}
+show_log_menu(){
+    echo "Sing-box Core Management"
+    echo "------------------------------------------"
+    echo -e "${green}0.${plain} Back to Menu"
+    echo -e "${green}1.${plain} Show sing-box log"
+    echo -e "${green}2.${plain} Clear sing-box log"
+    echo "------------------------------------------"
+    echo && read -p "Please enter your choice[0-2]: " num
+
+    case "${num}" in
+    0)
         show_menu
         ;;
-    8)
+    1)
         show_log && show_menu
         ;;
-    9)
+    2)
         clear_log && show_menu
         ;;
-    A)
-        config_check && show_menu
+    *)
+        LOGE "Please enter the correct option [0-2]"
         ;;
-    B)
+    esac
+}
+show_boot_menu(){
+    echo "Boot Menu"
+    echo "------------------------------------------"
+    echo -e "${green}0.${plain} Back to Menu"
+    echo -e "${green}1.${plain} Setting the sing-box to boot up"
+    echo -e "${green}2.${plain} Cancel sing-box boot-up"
+    echo -e "${green}3.${plain} Set sing-box to clear logs & reboot regularly"
+    echo -e "${green}4.${plain} Cancel sing-box timer to clear logs & reboot"
+    echo "------------------------------------------"
+    echo && read -p "Please enter your choice[0-4]: " num
+
+    case "${num}" in
+    0)
+        show_menu
+        ;;
+    1)
         enable_sing-box && show_menu
         ;;
-    C)
+    2)
         disable_sing-box && show_menu
         ;;
-    D)
+    3)
         enable_auto_clear_log
         ;;
-    E)
+    4)
         disable_auto_clear_log
         ;;
-    F)
+    *)
+        LOGE "Please enter the correct option [0-4]"
+        ;;
+    esac
+}
+show_other_menu(){
+    echo "Other Menu"
+    echo "------------------------------------------"
+    echo -e "${green}0.${plain} Back to Menu"
+    echo -e "${green}1.${plain} Key to turn on bbr"
+    echo -e "${green}2.${plain} Key to apply for an SSL certificate"
+    echo "------------------------------------------"
+    echo && read -p "Please enter your choice[0-2]: " num
+
+    case "${num}" in
+    0)
+        show_menu
+        ;;
+    1)
         enable_bbr && show_menu
         ;;
-    G)
+    2)
         ssl_cert_issue
         ;;
     *)
-        LOGE "Please enter the correct option [0-G]"
+        LOGE "Please enter the correct option [0-2]"
+        ;;
+    esac
+}
+
+#show menu
+show_menu() {
+    echo -e "${green}sing-box-v${SING_BOX_YES_VERSION} Management Scripts${plain}"
+    echo -e "${green}0.${plain} Exit Script"
+    echo "------------------------------------------"
+    echo -e "${green}1.${plain} Core Management"
+    echo -e "${green}2.${plain} Viewing sing-box status"
+    echo -e "${green}3.${plain} View sing-box log"
+    echo -e "${green}4.${plain} Account Management"
+    echo "------------------------------------------"
+    echo -e "${green}5.${plain} Checking the sing-box configuration"
+    echo -e "${green}6.${plain} Show boot menu"
+    echo -e "${green}7.${plain} Show Other Menu"
+    echo "------------------------------------------"
+    show_status
+    echo && read -p "Please enter your choice[0-7]: " num
+
+    case "${num}" in
+    0)
+        exit 0
+        ;;
+    1)
+        show_core_menu
+        ;;
+    2)
+        show_menu
+        ;;
+    3)
+        show_log_menu
+        ;;
+    4)
+        show_manageAccount
+        ;;
+    5)
+        config_check && show_menu
+        ;;
+    6)
+        show_boot_menu
+        ;;
+    7)
+        show_other_menu
+        ;;
+    *)
+        LOGE "Please enter the correct option [0-7]"
         ;;
     esac
 }
