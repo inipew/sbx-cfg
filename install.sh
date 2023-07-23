@@ -309,7 +309,7 @@ download_config() {
     fi
     for file in "${FILE_LIST[@]}"; do
         if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
-            wget --no-check-certificate -O "${CONFIG_FILE_PATH}/${file}.json" "https://raw.githubusercontent.com/inipew/sbx-cfg/main/config/${file}.json"
+            wget --no-check-certificate -O "${CONFIG_FILE_PATH}/${file}" "https://raw.githubusercontent.com/inipew/sbx-cfg/main/config/${file}"
             if [[ $? -ne 0 ]]; then
                 LOGE "Failed to download the sing-box configuration template, please check the network"
                 exit 1
