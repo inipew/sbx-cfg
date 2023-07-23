@@ -1,11 +1,10 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 #####################################################
 #This shell script is used for sing-box installation
 #Usage：
 #
 #Author:FranzKafka
-#Mod:inipew
 #Date:2022-09-15
 #Version:0.0.1
 #####################################################
@@ -19,38 +18,37 @@ green='\033[0;32m'
 yellow='\033[0;33m'
 
 #os
-OS_RELEASE='ubuntu'
+OS_RELEASE=''
 
 #arch
-OS_ARCH='arm64'
+OS_ARCH=''
 
 #sing-box version
 SING_BOX_VERSION=''
 
 #script version
-EASYBOX_VERSION='0.0.1'
+SING_BOX_YES_VERSION='0.0.2'
 
 #package download path
-DOWNLOAD_PATH='/etc/easyBox/temp'
+DOWNLAOD_PATH='/usr/local/sing-box'
 
 #backup config path
-CONFIG_BACKUP_PATH='/etc/easyBox/backup'
+CONFIG_BACKUP_PATH='/usr/local/etc'
 
 #config install path
-CONFIG_FILE_PATH='/etc/easyBox/config'
+CONFIG_FILE_PATH='/usr/local/etc/sing-box/config'
 
 #binary install path
-BIN_FILE_PATH="/etc/easyBox/bin"
-BINARY_FILE_PATH='/etc/easyBox/bin/sing-box'
+BINARY_FILE_PATH='/usr/local/bin/sing-box'
 
 #scritp install path
-SCRIPT_FILE_PATH='/etc/easyBox/install.sh'
+SCRIPT_FILE_PATH='/usr/local/sbin/sing-box'
 
 #service install path
 SERVICE_FILE_PATH='/etc/systemd/system/sing-box.service'
 
 #log file save path
-DEFAULT_LOG_FILE_SAVE_PATH='/etc/easyBox/logs/sing-box.log'
+DEFAULT_LOG_FILE_SAVE_PATH='/usr/local/sing-box/sing-box.log'
 
 FILE_LIST=(
     "00_log.json"
@@ -91,7 +89,7 @@ function LOGD() {
 
 confirm() {
     if [[ $# > 1 ]]; then
-        echo && read -p "$1 [Default $2]: " temp
+        echo && read -p "$1 [Default$2]: " temp
         if [[ x"${temp}" == x"" ]]; then
             temp=$2
         fi
@@ -175,32 +173,11 @@ config_check() {
         fi
     fi
 }
-aliasInstall() {
-        local easyBoxType=
-        if [[ -d "/usr/bin/" ]]; then
-            if [[ ! -f "/usr/bin/easyBox" ]]; then
-                ln -s ${SCRIPT_FILE_PATH} /usr/bin/easyBox
-                chmod 700 /usr/bin/easyBox
-                easyBoxType=true
-            fi
-
-        elif [[ -d "/usr/sbin" ]]; then
-            if [[ ! -f "/usr/sbin/easyBox" ]]; then
-                ln -s ${SCRIPT_FILE_PATH} /usr/sbin/easyBox
-                chmod 700 /usr/sbin/easyBox
-                easyBoxType=true
-            fi
-        fi
-        if [[ "${easyBoxType}" == "true" ]]; then
-            echoContent green "Pintasan berhasil dibuat, Anda dapat menjalankan [easyBox] untuk membuka kembali skrip"
-        fi
-}
 
 set_as_entrance() {
     if [[ ! -f "${SCRIPT_FILE_PATH}" ]]; then
         wget --no-check-certificate -O ${SCRIPT_FILE_PATH} https://raw.githubusercontent.com/inipew/sbx-cfg/main/install.sh
         chmod +x ${SCRIPT_FILE_PATH}
-        aliasInstall
     fi
 }
 
@@ -248,9 +225,7 @@ show_running_status() {
 
 #show sing-box version
 show_sing_box_version() {
-    if [[ -f ${BINARY_FILE_PATH} ]]; then
-        LOGI "Version Information: $(${BINARY_FILE_PATH} version)"
-    fi
+    LOGI "Version Information: $(${BINARY_FILE_PATH} version)"
 }
 
 #show sing-box enable status,enabled means sing-box can auto start when system boot on
@@ -270,36 +245,26 @@ create_or_delete_path() {
         exit 1
     fi
     if [[ "$1" == "1" ]]; then
-        LOGI "Will create ${DOWNLOAD_PATH} and ${CONFIG_FILE_PATH} for sing-box..."
-        rm -rf ${DOWNLOAD_PATH} ${CONFIG_FILE_PATH} ${BIN_FILE_PATH}
-        mkdir -p ${DOWNLOAD_PATH} ${CONFIG_FILE_PATH} ${BIN_FILE_PATH}
+        LOGI "Will create ${DOWNLAOD_PATH} and ${CONFIG_FILE_PATH} for sing-box..."
+        rm -rf ${DOWNLAOD_PATH} ${CONFIG_FILE_PATH}
+        mkdir -p ${DOWNLAOD_PATH} ${CONFIG_FILE_PATH}
         if [[ $? -ne 0 ]]; then
-            LOGE "create ${DOWNLOAD_PATH} and ${CONFIG_FILE_PATH} for sing-box failed"
+            LOGE "create ${DOWNLAOD_PATH} and ${CONFIG_FILE_PATH} for sing-box failed"
             exit 1
         else
-            LOGI "create ${DOWNLOAD_PATH} and ${CONFIG_FILE_PATH} for sing-box success"
+            LOGI "create ${DOWNLAOD_PATH} adn ${CONFIG_FILE_PATH} for sing-box success"
         fi
     elif [[ "$1" == "0" ]]; then
-        LOGI "Will delete ${DOWNLOAD_PATH} and ${CONFIG_FILE_PATH}..."
-        rm -rf ${DOWNLOAD_PATH} ${CONFIG_FILE_PATH}
+        LOGI "Will delete ${DOWNLAOD_PATH} and ${CONFIG_FILE_PATH}..."
+        rm -rf ${DOWNLAOD_PATH} ${CONFIG_FILE_PATH}
         if [[ $? -ne 0 ]]; then
-            LOGE "delete ${DOWNLOAD_PATH} and ${CONFIG_FILE_PATH} failed"
+            LOGE "delete ${DOWNLAOD_PATH} and ${CONFIG_FILE_PATH} failed"
             exit 1
         else
-            LOGI "delete ${DOWNLOAD_PATH} and ${CONFIG_FILE_PATH} success"
+            LOGI "delete ${DOWNLAOD_PATH} and ${CONFIG_FILE_PATH} success"
         fi
     fi
-}
-make_folder(){
-    LOGI "Will create ${DOWNLOAD_PATH} and ${CONFIG_FILE_PATH} for sing-box..."
-    rm -rf ${DOWNLOAD_PATH} ${CONFIG_FILE_PATH} ${BIN_FILE_PATH}
-    mkdir -p ${DOWNLOAD_PATH} ${CONFIG_FILE_PATH} ${BIN_FILE_PATH}
-    if [[ $? -ne 0 ]]; then
-        LOGE "create ${DOWNLOAD_PATH}, ${CONFIG_FILE_PATH}, and ${BIN_FILE_PATH} for sing-box failed"
-        exit 1
-    else
-        LOGI "create ${DOWNLOAD_PATH}, ${CONFIG_FILE_PATH}, and ${BIN_FILE_PATH}  for sing-box success"
-    fi
+
 }
 
 #install some common utils
@@ -313,29 +278,24 @@ install_base() {
 
 #download sing-box  binary
 download_sing-box() {
-    local prereleaseStatus=false
-    if [[ "$1" == "true" ]]; then
-        prereleaseStatus=true
-    fi
-
     LOGD "start downloading sing-box..."
     os_check && arch_check && install_base
     if [[ $# -gt 1 ]]; then
-        echo -e "${red}invalid input, plz check your input: $* ${plain}"
+        echo -e "${red}invalid input,plz check your input: $* ${plain}"
         exit 1
     elif [[ $# -eq 1 ]]; then
         SING_BOX_VERSION=$1
         local SING_BOX_VERSION_TEMP="v${SING_BOX_VERSION}"
     else
-        local SING_BOX_VERSION_TEMP=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases | jq -r ".[]|select (.prerelease==${prereleaseStatus})|.tag_name" | head -1)
+        local SING_BOX_VERSION_TEMP=$(curl -Ls "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         SING_BOX_VERSION=${SING_BOX_VERSION_TEMP:1}
     fi
     LOGI "Version:${SING_BOX_VERSION}"
-    local DOWNLOAD_URL="https://github.com/SagerNet/sing-box/releases/download/${SING_BOX_VERSION_TEMP}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz"
+    local DOWANLOAD_URL="https://github.com/SagerNet/sing-box/releases/download/${SING_BOX_VERSION_TEMP}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz"
 
     #here we need create directory for sing-box
     create_or_delete_path 1
-    wget -N --no-check-certificate -O ${DOWNLOAD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz ${DOWNLOAD_URL}
+    wget -N --no-check-certificate -O ${DOWNLAOD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz ${DOWANLOAD_URL}
 
     if [[ $? -ne 0 ]]; then
         LOGE "Download sing-box failed,plz be sure that your network work properly and can access github"
@@ -376,7 +336,7 @@ backup_config() {
             LOGE "There are currently no configuration files to back up"
             return 0
         else
-            mv "${CONFIG_FILE_PATH}/${file}" "${CONFIG_BACKUP_PATH}/${file}.bak"
+            mv ${CONFIG_FILE_PATH}/${file} ${CONFIG_BACKUP_PATH}/${file}.bak
         fi
     done
     LOGD "Backup sing-box configuration file completed"
@@ -390,7 +350,7 @@ restore_config() {
             LOGE "There are currently no configuration files to back up"
             return 0
         else
-            mv "${CONFIG_FILE_PATH}/${file}.bak" "${CONFIG_BACKUP_PATH}/${file}"
+            mv ${CONFIG_FILE_PATH}/${file}.bak ${CONFIG_BACKUP_PATH}/${file}
         fi
     done
     LOGD "Restoring the sing-box configuration file is complete"
@@ -406,14 +366,14 @@ install_sing-box() {
         download_sing-box
     fi
     download_config
-    if [[ ! -f "${DOWNLOAD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz" ]]; then
+    if [[ ! -f "${DOWNLAOD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz" ]]; then
         clear_sing_box
         LOGE "could not find sing-box packages,plz check dowanload sing-box whether suceess"
         exit 1
     fi
-    cd ${DOWNLOAD_PATH}
+    cd ${DOWNLAOD_PATH}
     #decompress sing-box packages
-    tar -xvf sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz -C ${BIN_FILE_PATH} && mv "${BIN_FILE_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}/sing-box" ${BINARY_FILE_PATH}
+    tar -xvf sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz && cd sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}
 
     if [[ $? -ne 0 ]]; then
         clear_sing_box
@@ -424,12 +384,10 @@ install_sing-box() {
     fi
 
     #install sing-box
-    # install -m 755 sing-box ${BINARY_FILE_PATH}
-    chmod 655 ${BINARY_FILE_PATH}
-    rm -rf "${BIN_FILE_PATH}/sing-box-1.3.0-linux-arm64"
+    install -m 755 sing-box ${BINARY_FILE_PATH}
 
     if [[ $? -ne 0 ]]; then
-        LOGE "install sing-box failed, exit"
+        LOGE "install sing-box failed,exit"
         exit 1
     else
         LOGI "install sing-box suceess"
@@ -446,14 +404,14 @@ update_sing-box() {
         show_menu
     fi
     #here we need back up config first,and then restore it after installation
-    # backup_config
+    backup_config
     #get the version paremeter
     if [[ $# -ne 0 ]]; then
         install_sing-box $1
     else
         install_sing-box
     fi
-    # restore_config
+    restore_config
     if ! systemctl restart sing-box; then
         LOGE "update sing-box failed,please check logs"
         show_menu
@@ -813,7 +771,7 @@ ssl_cert_issue() {
 
 #show help
 show_help() {
-    echo "sing-box-v${EASYBOX_VERSION} Managing Script Usage: "
+    echo "sing-box-v${SING_BOX_YES_VERSION} Managing Script Usage: "
     echo "------------------------------------------"
     echo "sing-box              - Show shortcut menu (more features)"
     echo "sing-box start        - Start the sing-box service"
@@ -983,7 +941,7 @@ show_other_menu(){
 
 #show menu
 show_menu() {
-    echo -e "${green}sing-box-v${EASYBOX_VERSION} Management Scripts${plain}"
+    echo -e "${green}sing-box-v${SING_BOX_YES_VERSION} Management Scripts${plain}"
     echo -e "${green}0.${plain} Exit Script"
     echo "------------------------------------------"
     echo -e "${green}1.${plain} Core Management"
@@ -1030,10 +988,8 @@ show_menu() {
 }
 
 start_to_run() {
-    make_folder
     set_as_entrance
-    aliasInstall
-    # clear
+    clear
     show_menu
 }
 
