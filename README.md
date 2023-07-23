@@ -31,11 +31,19 @@ sing-box is a universal proxy platform which supports many protocols.Currently i
 For more details,please check here:point_right:[official site](https://sing-box.sagernet.org/)
 # usage
 ```
-bash <(https://raw.githubusercontent.com/inipew/sbx-cfg/main/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/inipew/sbx-cfg/main/install.sh)
 ```    
 If you want install specific version,plz use coomand line as follows:
 ```
-bash <(https://raw.githubusercontent.com/inipew/sbx-cfg/main/install.sh) install 1.0.3
+bash <(curl -Ls https://raw.githubusercontent.com/inipew/sbx-cfg/main/install.sh) install 1.3.1-beta3
+```
+If you want to update to the latest release version after installation and keep the original configuration file, use the following command or update via menu option ``2``.  
+```
+sing-box update 
+```
+If you want to update to a specific version (including Pre-release) after installation, and keep the configuration file, use the following command to update, replacing '1.1-beta8' with the specific version number.
+```
+sing-box update 1.3.1-rc.1
 ```
 # quick start
 Just type `sing-box` to enter control menu,as follows showed here:
