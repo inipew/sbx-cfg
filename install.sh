@@ -182,6 +182,11 @@ aliasInstall() {
                 ln -s ${SCRIPT_FILE_PATH} /usr/bin/easyBox
                 chmod 700 /usr/bin/easyBox
                 easyBoxType=true
+            else
+                rm /usr/bin/easyBox
+                ln -s ${SCRIPT_FILE_PATH} /usr/bin/easyBox
+                chmod 700 /usr/bin/easyBox
+                easyBoxType=true
             fi
 
         elif [[ -d "/usr/sbin" ]]; then
@@ -189,10 +194,15 @@ aliasInstall() {
                 ln -s ${SCRIPT_FILE_PATH} /usr/sbin/easyBox
                 chmod 700 /usr/sbin/easyBox
                 easyBoxType=true
+            else
+                rm /usr/sbin/easyBox
+                ln -s ${SCRIPT_FILE_PATH} /usr/sbin/easyBox
+                chmod 700 /usr/sbin/easyBox
+                easyBoxType=true
             fi
         fi
         if [[ "${easyBoxType}" == "true" ]]; then
-            echoContent green "Pintasan berhasil dibuat, Anda dapat menjalankan [easyBox] untuk membuka kembali skrip"
+            LOGI "Shortcut created successfully, you can execute [easyBox] to reopen the script"
         fi
 }
 
