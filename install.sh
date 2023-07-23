@@ -51,13 +51,11 @@ SERVICE_FILE_PATH='/etc/systemd/system/sing-box.service'
 DEFAULT_LOG_FILE_SAVE_PATH='/usr/local/sing-box/sing-box.log'
 
 FILE_LIST=(
-    "00_log.json"
-    "01_dns.json"
+    "00_log_and_dns.json"
+    "01_outbounds_and_route.json"
     "02_vless_ws.json"
     "03_vmess_ws.json"
     "04_trojan_ws.json"
-    "11_ipv4_outbouds.json"
-    "12_routing.json"
 )
 ACCOUNT_FILE_LIST=(
         "02_vless_ws.json"
@@ -89,7 +87,7 @@ function LOGD() {
 
 confirm() {
     if [[ $# > 1 ]]; then
-        echo && read -p "$1 [Default$2]: " temp
+        echo && read -p "$1 [Default $2]: " temp
         if [[ x"${temp}" == x"" ]]; then
             temp=$2
         fi
@@ -500,28 +498,6 @@ download_sing-box() {
     fi
 }
 
-#dwonload  config examples,this should be called when dowanload sing-box
-download_config() {
-    LOGD "start downloading sing-box Configuration Templates..."
-    if [[ ! -d ${CONFIG_FILE_PATH} ]]; then
-        mkdir -p ${CONFIG_FILE_PATH}
-    fi
-    for file in "${FILE_LIST[@]}"; do
-        if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
-            wget --no-check-certificate -O "${CONFIG_FILE_PATH}/${file}" "https://raw.githubusercontent.com/inipew/sbx-cfg/main/config/${file}"
-            if [[ $? -ne 0 ]]; then
-                LOGE "Failed to download the sing-box configuration template, please check the network"
-                exit 1
-            else
-                LOGI "Download the sing-box configuration template successfully"
-            fi
-        else
-            LOGI "${CONFIG_FILE_PATH}/${file} Already exists, no need to download again"
-        fi
-    done
-    
-}
-
 #backup config，this will be called when update sing-box
 backup_config() {
     LOGD "Start backing up the sing-box configuration file..."
@@ -559,7 +535,7 @@ install_sing-box() {
     else
         download_sing-box
     fi
-    # download_config
+    
     create_account_file
     if [[ ! -f "${DOWNLAOD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz" ]]; then
         clear_sing_box
@@ -920,7 +896,7 @@ clear_log() {
 enable_auto_clear_log() {
     LOGI "Setting up the sing-box to clear logs on a regular basis..."
     local disabled=false
-    disabled=$(cat ${CONFIG_FILE_PATH}/00_log.json | jq .log.disabled | tr -d '"')
+    disabled=$(cat ${CONFIG_FILE_PATH}/00_log_and_dns.json | jq .log.disabled | tr -d '"')
     if [[ ${disabled} == "true" ]]; then
         LOGE "If logging is not enabled on the current system, the script will be exited directly."
         exit 0
@@ -929,7 +905,7 @@ enable_auto_clear_log() {
     if [[ $# -gt 0 ]]; then
         filePath=$1
     else
-        filePath=$(cat ${CONFIG_FILE_PATH}/00_log.json | jq .log.output | tr -d '"')
+        filePath=$(cat ${CONFIG_FILE_PATH}/00_log_and_dns.json | jq .log.output | tr -d '"')
     fi
     if [[ ! -f ${filePath} ]]; then
         LOGE "${filePath} Does not exist, failed to set sing-box timer to clear logs."
