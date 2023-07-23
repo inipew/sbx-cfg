@@ -237,7 +237,201 @@ show_enable_status() {
         echo -e "[INF] Auto start sing-box when system boot: ${red}no${plain}"
     fi
 }
+create_config_file(){
+    LOGI "Creating base config files"
+    cat >"${CONFIG_FILE_PATH}/00_log_and_dns.json" <<EOF
+{
+  "log": {
+    "disabled": false,
+    "level": "info",
+    "output": "/usr/local/sing-box/sing-box.log",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "google-tls",
+        "address": "local",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "ipv4_only",
+        "detour": "direct"
+      },
+      {
+        "tag": "google-udp",
+        "address": "8.8.8.8",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
+        "tag": "block",
+        "address": "rcode://success"
+      }
+    ],
+    "rules": [
+      {
+        "geosite": "rule-malicious",
+        "server": "block",
+        "rewrite_ttl": 20
+      }
+    ],
+    "strategy": "prefer_ipv4",
+    "disable_cache": false,
+    "disable_expire": false
+  }
+}
+EOF
 
+sleep 2
+
+cat >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json" <<EOF
+{
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    },
+    {
+      "type": "dns",
+      "tag": "dns-out"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "dns-out"
+      },
+      {
+        "inbound": ["vless-ws-in", "vmess-ws-in", "trojan-ws-in"],
+        "network": "tcp",
+        "outbound": "direct"
+      },
+      {
+        "geosite": ["category-ads-all", "oisd-full", "rule-ads"],
+        "outbound": "block"
+      }
+    ],
+    "geoip": {
+      "path": "/usr/local/etc/sing-box/geo/geoip.db",
+      "download_url": "https://github.com/malikshi/sing-box-geo/releases/latest/download/geoip.db",
+      "download_detour": "direct"
+    },
+    "geosite": {
+      "path": "/usr/local/etc/sing-box/geo/geosite.db",
+      "download_url": "https://github.com/malikshi/sing-box-geo/releases/latest/download/geosite.db",
+      "download_detour": "direct"
+    },
+    "final": "direct",
+    "auto_detect_interface": true
+  }
+}
+EOF
+}
+create_account_file(){
+    create_config_file
+    LOGI "Creating config files"
+    for file in "${ACCOUNT_FILE_LIST[@]}"; do
+        case "${file}" in
+        "02_vless_ws.json")
+            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+{
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-ws-in",
+      "listen": "127.0.0.1",
+      "listen_port": 31302,
+      "tcp_fast_open": false,
+      "domain_strategy": "prefer_ipv4",
+      "proxy_protocol": false,
+      "proxy_protocol_accept_no_header": false,
+      "users": [
+        {
+          "name": "default",
+          "uuid": "d774d7b8-3506-4cbb-ab8f-87de7ac26dg4"
+        }
+      ],
+      "transport": {
+        "type": "ws",
+        "path": "/vless",
+        "max_early_data": 2048,
+        "early_data_header_name": "Sec-WebSocket-Protocol"
+      }
+    }
+  ]
+}
+EOF
+            ;;
+        "03_vmess_ws.json")
+            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+{
+  "inbounds": [
+    {
+      "type": "vmess",
+      "tag": "vmess-ws-in",
+      "listen": "127.0.0.1",
+      "listen_port": 31303,
+      "tcp_fast_open": false,
+      "domain_strategy": "prefer_ipv4",
+      "proxy_protocol": false,
+      "proxy_protocol_accept_no_header": false,
+      "users": [
+        {
+          "name": "default",
+          "uuid": "d774d7b8-3506-4cbb-ab8f-87de7ac26dg4",
+          "alterId": 0
+        }
+      ],
+      "transport": {
+        "type": "ws",
+        "path": "/vmess",
+        "max_early_data": 2048,
+        "early_data_header_name": "Sec-WebSocket-Protocol"
+      }
+    }
+  ]
+}
+EOF
+            ;;
+        "04_trojan_ws.json")
+            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+{
+  "inbounds": [
+    {
+      "type": "trojan",
+      "tag": "trojan-ws-in",
+      "listen": "0.0.0.0",
+      "listen_port": 31304,
+      "tcp_fast_open": false,
+      "domain_strategy": "prefer_ipv4",
+      "proxy_protocol": false,
+      "proxy_protocol_accept_no_header": false,
+      "users": [
+        {
+          "name": "default",
+          "password": "0f43860b-a41b-41bb-bb1b-87de7ac26dg4"
+        }
+      ],
+      "transport": {
+        "type": "ws",
+        "path": "/trojan"
+      }
+    }
+  ]
+}
+EOF
+            ;;
+        *)
+            echo "Unknown configuration file: ${file}"
+            ;;
+        esac
+    done
+}
 #installation path create & delete,1->create,0->delete
 create_or_delete_path() {
     if [[ $# -ne 1 ]]; then
@@ -365,7 +559,8 @@ install_sing-box() {
     else
         download_sing-box
     fi
-    download_config
+    # download_config
+    create_account_file
     if [[ ! -f "${DOWNLAOD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz" ]]; then
         clear_sing_box
         LOGE "could not find sing-box packages,plz check dowanload sing-box whether suceess"
