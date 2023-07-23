@@ -161,7 +161,7 @@ status_check() {
 
 #check config provided by sing-box core
 config_check() {
-    if [[ ! -f "${CONFIG_FILE_PATH}/00_log.json" ]]; then
+    if [[ ! -e "${CONFIG_FILE_PATH}" ]]; then
         LOGE "${CONFIG_FILE_PATH} does not exist, configuration check failed"
         return
     else
@@ -240,7 +240,6 @@ show_enable_status() {
 
 #installation path create & delete,1->create,0->delete
 create_or_delete_path() {
-
     if [[ $# -ne 1 ]]; then
         LOGE "invalid input,should be one paremete,and can be 0 or 1"
         exit 1
@@ -337,7 +336,7 @@ backup_config() {
             LOGE "There are currently no configuration files to back up"
             return 0
         else
-            mv ${CONFIG_FILE_PATH}/${file}.json ${CONFIG_BACKUP_PATH}/${file}.json.bak
+            mv ${CONFIG_FILE_PATH}/${file} ${CONFIG_BACKUP_PATH}/${file}.bak
         fi
     done
     LOGD "Backup sing-box configuration file completed"
@@ -351,7 +350,7 @@ restore_config() {
             LOGE "There are currently no configuration files to back up"
             return 0
         else
-            mv ${CONFIG_FILE_PATH}/${file}.json.bak ${CONFIG_BACKUP_PATH}/${file}.json
+            mv ${CONFIG_FILE_PATH}/${file}.bak ${CONFIG_BACKUP_PATH}/${file}
         fi
     done
     LOGD "Restoring the sing-box configuration file is complete"
@@ -566,7 +565,13 @@ user_exists() {
 
 add_new_account(){
     read -r -p "Enter the name for the new user: " username
-    uuid=$(/usr/local/bin/sing-box generate uuid)
+
+    read -r -p "Enter UUID [default=automatically generated]: " input_uuid
+    if [[ -z "$input_uuid" ]]; then
+        uuid=$(/usr/local/bin/sing-box generate uuid)
+    else
+        uuid=$input_uuid
+    fi
 
     for file in "${ACCOUNT_FILE_LIST[@]}"; do
         if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
@@ -589,12 +594,12 @@ add_new_account(){
                     echo "Unknown configuration file: ${file}"
                     ;;
                 esac
+                echo -e "Account ${username} has successfully added to config ${file}."
             else
                 echo "User ${username} already exists in the ${CONFIG_FILE_PATH}/${file}."
             fi
         fi
     done
-    echo -e "Account has successfully created."
     restart_sing-box
 }
 
@@ -642,7 +647,8 @@ show_user_details(){
 }
 show_account_details(){
     display_users
-    read -p "Please enter your choice[0-4]:" num
+    total_users=$(jq '.inbounds[0].users | length' "${CONFIG_FILE_PATH}/02_vless_ws.json")
+    read -p "Please enter your choice[1-${total_users}]:" num
     if [[ $num =~ ^[0-9]+$ ]]; then
         total_users=$(jq '.inbounds[0].users | length' "${CONFIG_FILE_PATH}/02_vless_ws.json")
         if ((num >= 1 && num <= total_users)); then
@@ -655,37 +661,6 @@ show_account_details(){
     else
         echo "Invalid input. Please enter a valid number."
     fi
-}
-show_manageAccount(){
-    echo "Account Management: "
-    echo "------------------------------------------"
-    echo -e "${green}0.${plain} Back"
-    echo -e "${green}1.${plain} Add new user"
-    echo -e "${green}2.${plain} Remove an user"
-    echo -e "${green}3.${plain} View account detail"
-    echo -e "${green}4.${plain} List User"
-    echo && read -p "Please enter your choice[0-4]: " num
-
-    case "${num}" in
-    0)
-        show_manageAccount
-        ;;
-    1)
-        add_new_account && show_manageAccount
-        ;;
-    2)
-        remove_an_account && show_manageAccount
-        ;;
-    3)
-        show_account_details && show_manageAccount
-        ;;
-    4)
-        display_users && show_manageAccount
-        ;;
-    *)
-        LOGE "Please enter the correct option [0-3]"
-        ;;
-    esac
 }
 
 #show logs
@@ -811,6 +786,37 @@ show_help() {
     echo "sing-box install      - Installing the sing-box service"
     echo "sing-box uninstall    - Uninstalling the sing-box service"
     echo "------------------------------------------"
+}
+show_manageAccount(){
+    echo "Account Management: "
+    echo "------------------------------------------"
+    echo -e "${green}0.${plain} Back"
+    echo -e "${green}1.${plain} Add new user"
+    echo -e "${green}2.${plain} Remove an user"
+    echo -e "${green}3.${plain} View account detail"
+    echo -e "${green}4.${plain} List User"
+    echo && read -p "Please enter your choice[0-4]: " num
+
+    case "${num}" in
+    0)
+        show_menu
+        ;;
+    1)
+        add_new_account && show_manageAccount
+        ;;
+    2)
+        remove_an_account && show_manageAccount
+        ;;
+    3)
+        show_account_details && show_manageAccount
+        ;;
+    4)
+        display_users && show_manageAccount
+        ;;
+    *)
+        LOGE "Please enter the correct option [0-3]"
+        ;;
+    esac
 }
 show_core_menu(){
     echo "Sing-box Core Management"
