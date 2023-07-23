@@ -174,7 +174,7 @@ config_check() {
 
 set_as_entrance() {
     if [[ ! -f "${SCRIPT_FILE_PATH}" ]]; then
-        wget --no-check-certificate -O ${SCRIPT_FILE_PATH} https://raw.githubusercontent.com/inipew/sbx-cfg/main/install.sh
+        wget --no-check-certificate -O ${SCRIPT_FILE_PATH} https://raw.githubusercontent.com/inipew/sbx-cfg/test/install.sh
         chmod +x ${SCRIPT_FILE_PATH}
     fi
 }
@@ -470,16 +470,21 @@ install_base() {
 
 #download sing-box  binary
 download_sing-box() {
+    local prereleaseStatus=false
     LOGD "start downloading sing-box..."
     os_check && arch_check && install_base
     if [[ $# -gt 1 ]]; then
         echo -e "${red}invalid input,plz check your input: $* ${plain}"
         exit 1
     elif [[ $# -eq 1 ]]; then
-        SING_BOX_VERSION=$1
-        local SING_BOX_VERSION_TEMP="v${SING_BOX_VERSION}"
+        if [[ "$1" == "1" ]]; then
+            prereleaseStatus=true
+        else
+            SING_BOX_VERSION=$1
+            local SING_BOX_VERSION_TEMP="v${SING_BOX_VERSION}"
+        fi
     else
-        local SING_BOX_VERSION_TEMP=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases | jq -r ".[]|select (.prerelease==false)|.tag_name" | head -1)
+        local SING_BOX_VERSION_TEMP=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases | jq -r ".[]|select (.prerelease==${prereleaseStatus})|.tag_name" | head -1)
         SING_BOX_VERSION=${SING_BOX_VERSION_TEMP:1}
     fi
     LOGI "Version:${SING_BOX_VERSION}"
