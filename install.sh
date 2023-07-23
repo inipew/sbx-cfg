@@ -479,6 +479,8 @@ download_sing-box() {
     elif [[ $# -eq 1 ]]; then
         if [[ "$1" == "1" ]]; then
             prereleaseStatus=true
+            local SING_BOX_VERSION_TEMP=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases | jq -r ".[]|select (.prerelease==${prereleaseStatus})|.tag_name" | head -1)
+            SING_BOX_VERSION=${SING_BOX_VERSION_TEMP:1}
         else
             SING_BOX_VERSION=$1
             local SING_BOX_VERSION_TEMP="v${SING_BOX_VERSION}"
