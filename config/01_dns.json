@@ -1,0 +1,34 @@
+{
+  "dns": {
+    "servers": [
+      {
+        "tag": "google-tls",
+        "address": "local",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "ipv4_only",
+        "detour": "direct"
+      },
+      {
+        "tag": "google-udp",
+        "address": "8.8.8.8",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
+        "tag": "block",
+        "address": "rcode://success"
+      }
+    ],
+    "rules": [
+      {
+        "geosite": "rule-malicious",
+        "server": "block",
+        "rewrite_ttl": 20
+      }
+    ],
+    "strategy": "prefer_ipv4",
+    "disable_cache": false,
+    "disable_expire": false
+  }
+}
