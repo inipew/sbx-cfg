@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.0.2'
+SING_BOX_YES_VERSION='0.0.1'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -350,7 +350,7 @@ create_account_file(){
       "listen": "127.0.0.1",
       "listen_port": 31302,
       "tcp_fast_open": true,
-      "domain_strategy": "prefer_ipv4"
+      "domain_strategy": "prefer_ipv4",
       "users": [
         {
           "name": "default",
