@@ -236,7 +236,7 @@ show_enable_status() {
     fi
 }
 create_config_file(){
-    LOGI "Creating base config files"
+    LOGD "Creating base config files"
     cat >"${CONFIG_FILE_PATH}/00_log_and_dns.json" <<EOF
 {
   "log": {
@@ -274,6 +274,7 @@ create_config_file(){
       }
     ],
     "strategy": "prefer_ipv4",
+    "independent_cache": true,
     "disable_cache": false,
     "disable_expire": false
   }
@@ -305,12 +306,14 @@ cat >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json" <<EOF
         "outbound": "dns-out"
       },
       {
-        "inbound": ["vless-ws-in", "vmess-ws-in", "trojan-ws-in"],
-        "network": "tcp",
+        "domain_suffix": [
+          "googlesyndication.com"
+        ],
         "outbound": "direct"
       },
       {
-        "geosite": ["category-ads-all", "oisd-full", "rule-ads"],
+        "inbound": ["vless-ws-in", "vmess-ws-in", "trojan-ws-in"],
+        "geosite": ["category-ads-all", "oisd-full"],
         "outbound": "block"
       }
     ],
@@ -332,7 +335,8 @@ EOF
 }
 create_account_file(){
     create_config_file
-    LOGI "Creating config files"
+    uuid=$(/usr/local/bin/sing-box generate uuid)
+    LOGD "Creating config files"
     for file in "${ACCOUNT_FILE_LIST[@]}"; do
         case "${file}" in
         "02_vless_ws.json")
@@ -344,14 +348,12 @@ create_account_file(){
       "tag": "vless-ws-in",
       "listen": "127.0.0.1",
       "listen_port": 31302,
-      "tcp_fast_open": false,
-      "domain_strategy": "prefer_ipv4",
-      "proxy_protocol": false,
-      "proxy_protocol_accept_no_header": false,
+      "tcp_fast_open": true,
+      "domain_strategy": "prefer_ipv4"
       "users": [
         {
           "name": "default",
-          "uuid": "d774d7b8-3506-4cbb-ab8f-87de7ac26dg4"
+          "uuid": "${uuid}"
         }
       ],
       "transport": {
@@ -374,14 +376,12 @@ EOF
       "tag": "vmess-ws-in",
       "listen": "127.0.0.1",
       "listen_port": 31303,
-      "tcp_fast_open": false,
+      "tcp_fast_open": true,
       "domain_strategy": "prefer_ipv4",
-      "proxy_protocol": false,
-      "proxy_protocol_accept_no_header": false,
       "users": [
         {
           "name": "default",
-          "uuid": "d774d7b8-3506-4cbb-ab8f-87de7ac26dg4",
+          "uuid": "${uuid}",
           "alterId": 0
         }
       ],
@@ -405,19 +405,19 @@ EOF
       "tag": "trojan-ws-in",
       "listen": "0.0.0.0",
       "listen_port": 31304,
-      "tcp_fast_open": false,
+      "tcp_fast_open": true,
       "domain_strategy": "prefer_ipv4",
-      "proxy_protocol": false,
-      "proxy_protocol_accept_no_header": false,
       "users": [
         {
           "name": "default",
-          "password": "0f43860b-a41b-41bb-bb1b-87de7ac26dg4"
+          "password": "${uuid}"
         }
       ],
       "transport": {
         "type": "ws",
-        "path": "/trojan"
+        "path": "/trojan",
+        "max_early_data": 2048,
+        "early_data_header_name": "Sec-WebSocket-Protocol"
       }
     }
   ]
