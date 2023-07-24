@@ -174,7 +174,7 @@ config_check() {
 
 set_as_entrance() {
     if [[ ! -f "${SCRIPT_FILE_PATH}" ]]; then
-        wget --no-check-certificate -O ${SCRIPT_FILE_PATH} https://raw.githubusercontent.com/inipew/sbx-cfg/main/install.sh
+        wget --no-check-certificate -O ${SCRIPT_FILE_PATH} https://raw.githubusercontent.com/inipew/sbx-cfg/test/install.sh
         chmod +x ${SCRIPT_FILE_PATH}
     fi
 }
@@ -236,8 +236,8 @@ show_enable_status() {
     fi
 }
 create_config_file(){
-    LOGI "Creating base config files"
-    cat >"${CONFIG_FILE_PATH}/00_log_and_dns.json" <<EOF
+    LOGD "Creating base config files"
+    cat <<EOF >"${CONFIG_FILE_PATH}/00_log_and_dns.json"
 {
   "log": {
     "disabled": false,
@@ -274,6 +274,7 @@ create_config_file(){
       }
     ],
     "strategy": "prefer_ipv4",
+    "independent_cache": true,
     "disable_cache": false,
     "disable_expire": false
   }
@@ -282,7 +283,7 @@ EOF
 
 sleep 2
 
-cat >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json" <<EOF
+cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
 {
   "outbounds": [
     {
@@ -305,12 +306,14 @@ cat >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json" <<EOF
         "outbound": "dns-out"
       },
       {
-        "inbound": ["vless-ws-in", "vmess-ws-in", "trojan-ws-in"],
-        "network": "tcp",
+        "domain_suffix": [
+          "googlesyndication.com"
+        ],
         "outbound": "direct"
       },
       {
-        "geosite": ["category-ads-all", "oisd-full", "rule-ads"],
+        "inbound": ["vless-ws-in", "vmess-ws-in", "trojan-ws-in"],
+        "geosite": ["category-ads-all", "oisd-full"],
         "outbound": "block"
       }
     ],
@@ -329,14 +332,16 @@ cat >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json" <<EOF
   }
 }
 EOF
+    create_account_file
 }
+
 create_account_file(){
-    create_config_file
-    LOGI "Creating config files"
+    uuid=$(/usr/local/bin/sing-box generate uuid)
+    LOGD "Creating config files"
     for file in "${ACCOUNT_FILE_LIST[@]}"; do
         case "${file}" in
         "02_vless_ws.json")
-            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
     {
@@ -344,14 +349,12 @@ create_account_file(){
       "tag": "vless-ws-in",
       "listen": "127.0.0.1",
       "listen_port": 31302,
-      "tcp_fast_open": false,
-      "domain_strategy": "prefer_ipv4",
-      "proxy_protocol": false,
-      "proxy_protocol_accept_no_header": false,
+      "tcp_fast_open": true,
+      "domain_strategy": "prefer_ipv4"
       "users": [
         {
           "name": "default",
-          "uuid": "d774d7b8-3506-4cbb-ab8f-87de7ac26dg4"
+          "uuid": "${uuid}"
         }
       ],
       "transport": {
@@ -366,7 +369,7 @@ create_account_file(){
 EOF
             ;;
         "03_vmess_ws.json")
-            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+            cat <<EOF >"${CONFIG_FILE_PATH}/${file}"
 {
   "inbounds": [
     {
@@ -374,14 +377,12 @@ EOF
       "tag": "vmess-ws-in",
       "listen": "127.0.0.1",
       "listen_port": 31303,
-      "tcp_fast_open": false,
+      "tcp_fast_open": true,
       "domain_strategy": "prefer_ipv4",
-      "proxy_protocol": false,
-      "proxy_protocol_accept_no_header": false,
       "users": [
         {
           "name": "default",
-          "uuid": "d774d7b8-3506-4cbb-ab8f-87de7ac26dg4",
+          "uuid": "${uuid}",
           "alterId": 0
         }
       ],
@@ -397,7 +398,7 @@ EOF
 EOF
             ;;
         "04_trojan_ws.json")
-            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+            cat <<EOF >"${CONFIG_FILE_PATH}/${file}"
 {
   "inbounds": [
     {
@@ -405,19 +406,19 @@ EOF
       "tag": "trojan-ws-in",
       "listen": "0.0.0.0",
       "listen_port": 31304,
-      "tcp_fast_open": false,
+      "tcp_fast_open": true,
       "domain_strategy": "prefer_ipv4",
-      "proxy_protocol": false,
-      "proxy_protocol_accept_no_header": false,
       "users": [
         {
           "name": "default",
-          "password": "0f43860b-a41b-41bb-bb1b-87de7ac26dg4"
+          "password": "${uuid}"
         }
       ],
       "transport": {
         "type": "ws",
-        "path": "/trojan"
+        "path": "/trojan",
+        "max_early_data": 2048,
+        "early_data_header_name": "Sec-WebSocket-Protocol"
       }
     }
   ]
@@ -470,16 +471,23 @@ install_base() {
 
 #download sing-box  binary
 download_sing-box() {
+    local prereleaseStatus=false
     LOGD "start downloading sing-box..."
     os_check && arch_check && install_base
     if [[ $# -gt 1 ]]; then
         echo -e "${red}invalid input,plz check your input: $* ${plain}"
         exit 1
     elif [[ $# -eq 1 ]]; then
-        SING_BOX_VERSION=$1
-        local SING_BOX_VERSION_TEMP="v${SING_BOX_VERSION}"
+        if [[ "$1" == "1" ]]; then
+            prereleaseStatus=true
+            local SING_BOX_VERSION_TEMP=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases | jq -r ".[]|select (.prerelease==${prereleaseStatus})|.tag_name" | head -1)
+            SING_BOX_VERSION=${SING_BOX_VERSION_TEMP:1}
+        else
+            SING_BOX_VERSION=$1
+            local SING_BOX_VERSION_TEMP="v${SING_BOX_VERSION}"
+        fi
     else
-        local SING_BOX_VERSION_TEMP=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases | jq -r ".[]|select (.prerelease==false)|.tag_name" | head -1)
+        local SING_BOX_VERSION_TEMP=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases | jq -r ".[]|select (.prerelease==${prereleaseStatus})|.tag_name" | head -1)
         SING_BOX_VERSION=${SING_BOX_VERSION_TEMP:1}
     fi
     LOGI "Version:${SING_BOX_VERSION}"
@@ -535,7 +543,6 @@ install_sing-box() {
         download_sing-box
     fi
     
-    create_account_file
     if [[ ! -f "${DOWNLAOD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz" ]]; then
         clear_sing_box
         LOGE "could not find sing-box packages,plz check dowanload sing-box whether suceess"
@@ -562,6 +569,7 @@ install_sing-box() {
     else
         LOGI "install sing-box suceess"
     fi
+    create_config_file
     install_systemd_service && enable_sing-box && start_sing-box
     LOGI "The installation of sing-box is successful, and it has been started successfully"
 }
