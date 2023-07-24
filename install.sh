@@ -237,7 +237,7 @@ show_enable_status() {
 }
 create_config_file(){
     LOGD "Creating base config files"
-    cat >"${CONFIG_FILE_PATH}/00_log_and_dns.json" <<EOF
+    cat <<EOF >"${CONFIG_FILE_PATH}/00_log_and_dns.json"
 {
   "log": {
     "disabled": false,
@@ -283,7 +283,7 @@ EOF
 
 sleep 2
 
-cat >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json" <<EOF
+cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
 {
   "outbounds": [
     {
@@ -332,15 +332,16 @@ cat >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json" <<EOF
   }
 }
 EOF
+    create_account_file
 }
+
 create_account_file(){
-    create_config_file
     uuid=$(/usr/local/bin/sing-box generate uuid)
     LOGD "Creating config files"
     for file in "${ACCOUNT_FILE_LIST[@]}"; do
         case "${file}" in
         "02_vless_ws.json")
-            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
     {
@@ -368,7 +369,7 @@ create_account_file(){
 EOF
             ;;
         "03_vmess_ws.json")
-            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+            cat <<EOF >"${CONFIG_FILE_PATH}/${file}"
 {
   "inbounds": [
     {
@@ -397,7 +398,7 @@ EOF
 EOF
             ;;
         "04_trojan_ws.json")
-            cat >"${CONFIG_FILE_PATH}/${file}" <<EOF
+            cat <<EOF >"${CONFIG_FILE_PATH}/${file}"
 {
   "inbounds": [
     {
@@ -542,7 +543,6 @@ install_sing-box() {
         download_sing-box
     fi
     
-    create_account_file
     if [[ ! -f "${DOWNLAOD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz" ]]; then
         clear_sing_box
         LOGE "could not find sing-box packages,plz check dowanload sing-box whether suceess"
@@ -569,6 +569,7 @@ install_sing-box() {
     else
         LOGI "install sing-box suceess"
     fi
+    create_config_file
     install_systemd_service && enable_sing-box && start_sing-box
     LOGI "The installation of sing-box is successful, and it has been started successfully"
 }
