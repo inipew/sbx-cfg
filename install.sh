@@ -174,7 +174,7 @@ config_check() {
 
 set_as_entrance() {
     if [[ ! -f "${SCRIPT_FILE_PATH}" ]]; then
-        wget --no-check-certificate -O ${SCRIPT_FILE_PATH} https://raw.githubusercontent.com/inipew/sbx-cfg/test/install.sh
+        wget --no-check-certificate -O ${SCRIPT_FILE_PATH} https://raw.githubusercontent.com/inipew/sbx-cfg/main/install.sh
         chmod +x ${SCRIPT_FILE_PATH}
     fi
 }
@@ -262,14 +262,14 @@ create_config_file(){
         "detour": "direct"
       },
       {
-        "tag": "block",
+        "tag": "block-dns",
         "address": "rcode://success"
       }
     ],
     "rules": [
       {
         "geosite": "rule-malicious",
-        "server": "block",
+        "server": "block-dns",
         "rewrite_ttl": 20
       }
     ],
