@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.0.1'
+SING_BOX_YES_VERSION='0.0.2'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -248,7 +248,7 @@ create_config_file(){
   "dns": {
     "servers": [
       {
-        "tag": "google-tls",
+        "tag": "local-dns",
         "address": "local",
         "address_strategy": "prefer_ipv4",
         "strategy": "ipv4_only",
@@ -258,7 +258,21 @@ create_config_file(){
         "tag": "google-udp",
         "address": "8.8.8.8",
         "address_strategy": "prefer_ipv4",
-        "strategy": "prefer_ipv4",
+        "strategy": "ipv4_only",
+        "detour": "direct"
+      },
+      {
+        "tag": "cloudflare-dns",
+        "address": "1.1.1.1",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "ipv4_only",
+        "detour": "direct"
+      },
+      {
+        "tag": "cloudflare-https",
+        "address": "https://1.1.1.1/dns-query",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "ipv4_only",
         "detour": "direct"
       },
       {
@@ -270,11 +284,34 @@ create_config_file(){
       {
         "geosite": "rule-malicious",
         "server": "block-dns",
+        "disable_cache": true,
+        "rewrite_ttl": 20
+      },
+      {
+        "query_type": ["HTTPS"],
+        "server": "cloudflare-https",
+        "rewrite_ttl": 20
+      },
+      {
+        "outbound": "any",
+        "server": "cloudflare-dns",
+        "rewrite_ttl": 20
+      },
+      {
+        "geosite": ["category-ads-all", "rule-ads", "oisd-full"],
+        "server": "block-dns",
+        "disable_cache": true,
+        "rewrite_ttl": 20
+      },
+      {
+        "geosite": ["oisd-nsfw","category-porn"],
+        "server": "block-dns",
+        "disable_cache": true,
         "rewrite_ttl": 20
       }
     ],
     "strategy": "prefer_ipv4",
-    "independent_cache": true,
+    "reverse_mapping": true,
     "disable_cache": false,
     "disable_expire": false
   }
@@ -306,25 +343,32 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
         "outbound": "dns-out"
       },
       {
+        "port": [53],
+        "outbound": "dns-out"
+      },
+      {
         "domain_suffix": [
           "googlesyndication.com"
         ],
         "outbound": "direct"
       },
       {
-        "inbound": ["vless-ws-in", "vmess-ws-in", "trojan-ws-in"],
-        "geosite": ["category-ads-all", "oisd-full"],
+        "geosite": ["category-ads-all", "rule-ads", "oisd-full"],
+        "outbound": "block"
+      },
+      {
+        "geosite": ["oisd-nsfw","category-porn"],
         "outbound": "block"
       }
     ],
     "geoip": {
       "path": "/usr/local/etc/sing-box/geo/geoip.db",
-      "download_url": "https://github.com/malikshi/sing-box-geo/releases/latest/download/geoip.db",
+      "download_url": "https://github.com/malikshi/v2ray-rules-dat/releases/latest/download/geoip.db",
       "download_detour": "direct"
     },
     "geosite": {
       "path": "/usr/local/etc/sing-box/geo/geosite.db",
-      "download_url": "https://github.com/malikshi/sing-box-geo/releases/latest/download/geosite.db",
+      "download_url": "https://github.com/malikshi/v2ray-rules-dat/releases/latest/download/geosite.db",
       "download_detour": "direct"
     },
     "final": "direct",
@@ -349,8 +393,11 @@ create_account_file(){
       "tag": "vless-ws-in",
       "listen": "127.0.0.1",
       "listen_port": 31302,
-      "tcp_fast_open": true,
+      "tcp_fast_open": false,
       "domain_strategy": "prefer_ipv4",
+      "sniff": true,
+      "sniff_override_destination": false,
+      "sniff_timeout": "300ms",
       "users": [
         {
           "name": "default",
@@ -377,8 +424,11 @@ EOF
       "tag": "vmess-ws-in",
       "listen": "127.0.0.1",
       "listen_port": 31303,
-      "tcp_fast_open": true,
+      "tcp_fast_open": false,
       "domain_strategy": "prefer_ipv4",
+      "sniff": true,
+      "sniff_override_destination": false,
+      "sniff_timeout": "300ms",
       "users": [
         {
           "name": "default",
@@ -406,8 +456,11 @@ EOF
       "tag": "trojan-ws-in",
       "listen": "0.0.0.0",
       "listen_port": 31304,
-      "tcp_fast_open": true,
+      "tcp_fast_open": false,
       "domain_strategy": "prefer_ipv4",
+      "sniff": true,
+      "sniff_override_destination": false,
+      "sniff_timeout": "300ms",
       "users": [
         {
           "name": "default",
@@ -470,7 +523,7 @@ install_base() {
 }
 
 #download sing-box  binary
-download_sing-box() {
+download_sing_box() {
     local prereleaseStatus=false
     LOGD "start downloading sing-box..."
     os_check && arch_check && install_base
@@ -534,13 +587,13 @@ backup_restore_config() {
 }
 
 #install sing-box,in this function we will download binary,paremete $1 will be used as version if it's given
-install_sing-box() {
+install_sing_box() {
     set_as_entrance
     LOGD "Start installing sing-box..."
     if [[ $# -ne 0 ]]; then
-        download_sing-box $1
+        download_sing_box $1
     else
-        download_sing-box
+        download_sing_box
     fi
     
     if [[ ! -f "${DOWNLAOD_PATH}/sing-box-${SING_BOX_VERSION}-linux-${OS_ARCH}.tar.gz" ]]; then
@@ -570,12 +623,12 @@ install_sing-box() {
         LOGI "install sing-box suceess"
     fi
     create_config_file
-    install_systemd_service && enable_sing-box && start_sing-box
+    install_systemd_service && enable_sing_box && start_sing_box
     LOGI "The installation of sing-box is successful, and it has been started successfully"
 }
 
 #update sing-box
-update_sing-box() {
+update_sing_box() {
     LOGD "Start updating sing-box..."
     if [[ ! -f "${SERVICE_FILE_PATH}" ]]; then
         LOGE "Currently the system does not have sing-box installed, please use the update command if sing-box is installed."
@@ -585,9 +638,9 @@ update_sing-box() {
     backup_restore_config 1
     #get the version paremeter
     if [[ $# -ne 0 ]]; then
-        install_sing-box $1
+        install_sing_box $1
     else
-        install_sing-box
+        install_sing_box
     fi
     backup_restore_config 2
     if ! systemctl restart sing-box; then
@@ -605,11 +658,11 @@ clear_sing_box() {
 }
 
 #uninstall sing-box
-uninstall_sing-box() {
+uninstall_sing_box() {
     LOGD "Start uninstalling sing-box..."
     pidOfsing_box=$(pidof sing-box)
     if [ -n ${pidOfsing_box} ]; then
-        stop_sing-box
+        stop_sing_box
     fi
     clear_sing_box
 
@@ -642,13 +695,13 @@ Documentation=https://sing-box.sagernet.org/
 After=network.target nss-lookup.target
 Wants=network.target
 [Service]
-Type=simple
-ExecStart=${BINARY_FILE_PATH} run -C ${CONFIG_FILE_PATH}
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
+ExecStart=${BINARY_FILE_PATH} -D /var/lib/sing-box -C ${CONFIG_FILE_PATH} run
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
-RestartSec=30s
-RestartPreventExitStatus=23
-LimitNPROC=10000
-LimitNOFILE=1000000
+RestartSec=10s
+LimitNOFILE=infinity
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -658,7 +711,7 @@ EOF
 }
 
 #start sing-box
-start_sing-box() {
+start_sing_box() {
     if [ -f "${SERVICE_FILE_PATH}" ]; then
         systemctl start sing-box
         sleep 1s
@@ -676,7 +729,7 @@ start_sing-box() {
 }
 
 #restart sing-box
-restart_sing-box() {
+restart_sing_box() {
     if [ -f "${SERVICE_FILE_PATH}" ]; then
         systemctl restart sing-box
         sleep 1s
@@ -694,7 +747,7 @@ restart_sing-box() {
 }
 
 #stop sing-box
-stop_sing-box() {
+stop_sing_box() {
     LOGD "Stopping the sing-box service..."
     status_check
     if [ $? == ${SING_BOX_STATUS_NOT_INSTALL} ]; then
@@ -713,7 +766,7 @@ stop_sing-box() {
 }
 
 #enable sing-box will set sing-box auto start on system boot
-enable_sing-box() {
+enable_sing_box() {
     systemctl enable sing-box
     if [[ $? == 0 ]]; then
         LOGI "Setting up sing-box to boot up successfully"
@@ -723,7 +776,7 @@ enable_sing-box() {
 }
 
 #disable sing-box
-disable_sing-box() {
+disable_sing_box() {
     systemctl disable sing-box
     if [[ $? == 0 ]]; then
         LOGI "Canceling the sing-box boot-up was successful"
@@ -778,7 +831,7 @@ add_new_account(){
             fi
         fi
     done
-    restart_sing-box
+    restart_sing_box
 }
 
 display_users() {
@@ -795,7 +848,7 @@ delete_user() {
             jq --argjson index "$selected_number" 'del(.inbounds[0].users[$index - 1]) | .inbounds[0].users |= map(select(. != null))' "${CONFIG_FILE_PATH}/${file}"|sponge "${CONFIG_FILE_PATH}/${file}"
         fi
     done
-    restart_sing-box
+    restart_sing_box
 }
 remove_an_account(){
     display_users
@@ -847,20 +900,16 @@ show_log() {
     if [[ $? == ${SING_BOX_STATUS_NOT_RUNNING} ]]; then
         journalctl -u sing-box.service -e --no-pager -f
     else
-        confirm "Confirm whether logging is enabled in the configuration, the default is enabled." "y"
-        if [[ $? -ne 0 ]]; then
-            LOGI "The log will be read from the console:"
-            journalctl -u sing-box.service -e --no-pager -f
+        local disabled=$(cat ${CONFIG_FILE_PATH}/00_log_and_dns.json | jq .log.disabled | tr -d '"')
+
+        if [[  ${disabled} == "true" ]]; then
+            LOGI "Logging is not currently enabled, please check the configuration."
+            exit 1
         else
-            local tempLog=''
-            read -p "Will read the log from the log file, please enter the path of the log file, directly enter will use the default path.": tempLog
-            if [[ -n ${tempLog} ]]; then
-                LOGI "Log file path:${tempLog}"
-                if [[ -f ${tempLog} ]]; then
-                    tail -f ${tempLog} -s 3
-                else
-                    LOGE "${tempLog} Does not exist, please check the configuration"
-                fi
+            local filePath=$(cat ${CONFIG_FILE_PATH}/00_log_and_dns.json | jq .log.output | tr -d '"')
+            if [[ ! -n ${filePath} || ! -f ${filePath} ]]; then
+                LOGE "Log ${filePath} does not exist, failed to view sing-box logs"
+                exit 1
             else
                 LOGI "Log file path:${DEFAULT_LOG_FILE_SAVE_PATH}"
                 tail -f ${DEFAULT_LOG_FILE_SAVE_PATH} -s 3
@@ -919,7 +968,7 @@ enable_auto_clear_log() {
         exit 1
     fi
     crontab -l >/tmp/crontabTask.tmp
-    echo "0 0 * * 6 sing-box clear ${filePath}" >>/tmp/crontabTask.tmp
+    echo "3 0 * * * sing-box clear ${filePath}" >>/tmp/crontabTask.tmp
     crontab /tmp/crontabTask.tmp
     rm /tmp/crontabTask.tmp
     LOGI "Setting sing-box to clear log ${filePath} on a regular basis succeeded."
@@ -1015,22 +1064,22 @@ show_core_menu(){
         show_menu
         ;;
     1)
-        install_sing-box && show_menu
+        install_sing_box && show_menu
         ;;
     2)
-        update_sing-box && show_menu
+        update_sing_box && show_menu
         ;;
     3)
-        uninstall_sing-box && show_menu
+        uninstall_sing_box && show_menu
         ;;
     4)
-        start_sing-box && show_menu
+        start_sing_box && show_menu
         ;;
     5)
-        stop_sing-box && show_menu
+        stop_sing_box && show_menu
         ;;
     6)
-        restart_sing-box && show_menu
+        restart_sing_box && show_menu
         ;;
     *)
         LOGE "Please enter the correct option [0-6]"
@@ -1083,10 +1132,10 @@ show_boot_menu(){
         show_menu
         ;;
     1)
-        enable_sing-box && show_menu
+        enable_sing_box && show_menu
         ;;
     2)
-        disable_sing-box && show_menu
+        disable_sing_box && show_menu
         ;;
     *)
         LOGE "Please enter the correct option [0-2]"
@@ -1176,45 +1225,45 @@ main() {
     if [[ $# > 0 ]]; then
         case $1 in
         "start")
-            start_sing-box
+            start_sing_box
             ;;
         "stop")
-            stop_sing-box
+            stop_sing_box
             ;;
         "restart")
-            restart_sing-box
+            restart_sing_box
             ;;
         "status")
             show_status
             ;;
         "enable")
-            enable_sing-box
+            enable_sing_box
             ;;
         "disable")
-            disable_sing-box
+            disable_sing_box
             ;;
         "log")
             show_log
             ;;
         "clear")
-            clear_log
+            clear_log $2
             ;;
         "update")
             if [[ $# == 2 ]]; then
-                update_sing-box $2
+                update_sing_box $2
             else
-                update_sing-box
+                update_sing_box
             fi
             ;;
         "install")
             if [[ $# == 2 ]]; then
-                install_sing-box $2
+                install_sing_box $2
             else
-                install_sing-box
+                install_sing_box
             fi
             ;;
         "uninstall")
-            uninstall_sing-box
+            uninstall_sing_box
             ;;
         *) show_help ;;
         esac
