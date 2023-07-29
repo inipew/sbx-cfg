@@ -250,28 +250,36 @@ create_config_file(){
       {
         "tag": "local-dns",
         "address": "local",
-        "address_strategy": "prefer_ipv4",
+        "address_strategy": "ipv4_only",
         "strategy": "ipv4_only",
         "detour": "direct"
       },
       {
         "tag": "google-udp",
         "address": "8.8.8.8",
-        "address_strategy": "prefer_ipv4",
+        "address_strategy": "ipv4_only",
         "strategy": "ipv4_only",
         "detour": "direct"
       },
       {
         "tag": "cloudflare-dns",
         "address": "1.1.1.1",
-        "address_strategy": "prefer_ipv4",
+        "address_strategy": "ipv4_only",
         "strategy": "ipv4_only",
         "detour": "direct"
       },
       {
         "tag": "cloudflare-https",
         "address": "https://1.1.1.1/dns-query",
-        "address_strategy": "prefer_ipv4",
+        "address_strategy": "ipv4_only",
+        "strategy": "ipv4_only",
+        "detour": "direct"
+      },
+      {
+        "tag": "cloudflare-tls",
+        "address": "tls://one.one.one.one",
+        "address_resolver": "local-dns",
+        "address_strategy": "ipv4_only",
         "strategy": "ipv4_only",
         "detour": "direct"
       },
@@ -293,25 +301,34 @@ create_config_file(){
         "rewrite_ttl": 20
       },
       {
+        "protocol": ["tls"],
+        "server": "cloudflare-tls",
+        "rewrite_ttl": 20
+      },
+      {
         "outbound": "any",
+        "server": "local-dns",
+        "rewrite_ttl": 50
+      },
+      {
+        "geosite": ["rule-sosmed", "rule-streaming"],
         "server": "cloudflare-dns",
         "rewrite_ttl": 20
       },
       {
         "geosite": ["category-ads-all", "rule-ads", "oisd-full"],
         "server": "block-dns",
-        "disable_cache": true,
         "rewrite_ttl": 20
       },
       {
         "geosite": ["oisd-nsfw","category-porn"],
         "server": "block-dns",
-        "disable_cache": true,
         "rewrite_ttl": 20
       }
     ],
-    "strategy": "prefer_ipv4",
+    "strategy": "ipv4_only",
     "reverse_mapping": true,
+    "independent_cache": true,
     "disable_cache": false,
     "disable_expire": false
   }
@@ -350,6 +367,10 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
         "domain_suffix": [
           "googlesyndication.com"
         ],
+        "outbound": "direct"
+      },
+      {
+        "geoip": ["google", "facebook", "telegram", "twitter"],
         "outbound": "direct"
       },
       {
@@ -394,7 +415,7 @@ create_account_file(){
       "listen": "127.0.0.1",
       "listen_port": 31302,
       "tcp_fast_open": false,
-      "domain_strategy": "prefer_ipv4",
+      "domain_strategy": "ipv4_only",
       "sniff": true,
       "sniff_override_destination": false,
       "sniff_timeout": "300ms",
@@ -425,7 +446,7 @@ EOF
       "listen": "127.0.0.1",
       "listen_port": 31303,
       "tcp_fast_open": false,
-      "domain_strategy": "prefer_ipv4",
+      "domain_strategy": "ipv4_only",
       "sniff": true,
       "sniff_override_destination": false,
       "sniff_timeout": "300ms",
@@ -457,7 +478,7 @@ EOF
       "listen": "0.0.0.0",
       "listen_port": 31304,
       "tcp_fast_open": false,
-      "domain_strategy": "prefer_ipv4",
+      "domain_strategy": "ipv4_only",
       "sniff": true,
       "sniff_override_destination": false,
       "sniff_timeout": "300ms",
