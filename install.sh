@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.0.6'
+SING_BOX_YES_VERSION='0.0.7'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -56,11 +56,15 @@ FILE_LIST=(
     "02_vless_ws.json"
     "03_vmess_ws.json"
     "04_trojan_ws.json"
+    "05_vless_reality.json"
+    "06_socks.json"
 )
 ACCOUNT_FILE_LIST=(
         "02_vless_ws.json"
         "03_vmess_ws.json"
         "04_trojan_ws.json"
+        "05_vless_reality.json"
+        "06_socks.json"
     )
 
 #sing-box status define
@@ -555,7 +559,7 @@ create_account_file(){
 EOF
             ;;
         "03_vmess_ws.json")
-            cat <<EOF >"${CONFIG_FILE_PATH}/${file}"
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
     {
@@ -586,7 +590,7 @@ EOF
 EOF
             ;;
         "04_trojan_ws.json")
-            cat <<EOF >"${CONFIG_FILE_PATH}/${file}"
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
     {
@@ -610,6 +614,71 @@ EOF
         "max_early_data": 0,
         "early_data_header_name": "Sec-WebSocket-Protocol"
       }
+    }
+  ]
+}
+EOF
+            ;;
+        "05_vless_reality.json")
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
+{
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-reality-in",
+      "listen": "0.0.0.0",
+      "listen_port": 18443,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "${uuid}",
+          "flow": "xtls-rprx-vision"
+        }
+      ],
+      "tls": {
+        "enabled": true,
+        "server_name": "help.shopee.co.id",
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "akupew.xzvf.site",
+            "server_port": 443
+          },
+          "private_key": "cOQ1bytBn4NcwTdOfaXeAchXblGQTHTK6PCnUOrrXVY",
+          "short_id": [
+            "7d29144bdf87bf2f"
+          ],
+          "max_time_difference": "2m"
+        }
+      }
+    }
+  ]
+}
+EOF
+            ;;
+        "06_socks.json")
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
+{
+  "inbounds": [
+    {
+      "type": "socks",
+      "tag": "socks-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8093,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "username": "${uuid}",
+          "password": "${uuid}"
+        }
+      ]
     }
   ]
 }
@@ -957,6 +1026,12 @@ add_new_account(){
                     ;;
                 "04_trojan_ws.json")
                     jq --arg name "$username" --arg password "$uuid" '.inbounds[0].users += [{"name": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
+                    ;;
+                "05_vless_reality.json")
+                    jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid, "flow": "xtls-rprx-vision"}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
+                    ;;
+                "06_socks.json")
+                    jq --arg name "$username" --arg password "$username" '.inbounds[0].users += [{"username": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
                 *)
                     echo "Unknown configuration file: ${file}"
