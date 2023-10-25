@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.0.2'
+SING_BOX_YES_VERSION='0.0.6'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -248,39 +248,61 @@ create_config_file(){
   "dns": {
     "servers": [
       {
+        "tag": "google",
+        "address": "8.8.8.8",
+        "address_strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
+        "tag": "googleh",
+        "address": "https://dns.google/dns-query",
+        "address_resolver": "local-dns",
+        "address_strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
+        "tag": "googlet",
+        "address": "tls://dns.google",
+        "address_resolver": "local-dns",
+        "address_strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
+        "tag": "google6",
+        "address": "2001:4860:4860::8888",
+        "address_strategy": "ipv6_only",
+        "strategy": "ipv6_only",
+        "detour": "direct"
+      },
+      {
+        "tag": "cloudflare4",
+        "address": "1.1.1.1",
+        "address_strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
+        "tag": "cloudflare6",
+        "address": "2606:4700:4700::1111",
+        "address_strategy": "ipv6_only",
+        "strategy": "ipv6_only",
+        "detour": "direct"
+      },
+      {
+        "tag": "cloudflareh",
+        "address": "https://1.1.1.1/dns-query",
+        "address_strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
+        "tag": "cloudflaret",
+        "address": "tls://1.1.1.1",
+        "address_strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
         "tag": "local-dns",
         "address": "local",
-        "address_strategy": "ipv4_only",
-        "strategy": "ipv4_only",
-        "detour": "direct"
-      },
-      {
-        "tag": "google-udp",
-        "address": "8.8.8.8",
-        "address_strategy": "ipv4_only",
-        "strategy": "ipv4_only",
-        "detour": "direct"
-      },
-      {
-        "tag": "cloudflare-dns",
-        "address": "1.1.1.1",
-        "address_strategy": "ipv4_only",
-        "strategy": "ipv4_only",
-        "detour": "direct"
-      },
-      {
-        "tag": "cloudflare-https",
-        "address": "https://1.1.1.1/dns-query",
-        "address_strategy": "ipv4_only",
-        "strategy": "ipv4_only",
-        "detour": "direct"
-      },
-      {
-        "tag": "cloudflare-tls",
-        "address": "tls://one.one.one.one",
-        "address_resolver": "local-dns",
-        "address_strategy": "ipv4_only",
-        "strategy": "ipv4_only",
+        "address_strategy": "prefer_ipv4",
         "detour": "direct"
       },
       {
@@ -290,47 +312,72 @@ create_config_file(){
     ],
     "rules": [
       {
+        "domain_suffix": [
+          ".arpa.",
+          ".arpa"
+        ],
+        "server": "block-dns",
+        "rewrite_ttl": 20
+      },
+      {
         "geosite": "rule-malicious",
         "server": "block-dns",
-        "disable_cache": true,
-        "rewrite_ttl": 20
+        "rewrite_ttl": 20,
+        "disable_cache": true
       },
       {
-        "query_type": ["HTTPS"],
-        "server": "cloudflare-https",
-        "rewrite_ttl": 20
-      },
-      {
-        "protocol": ["tls"],
-        "server": "cloudflare-tls",
-        "rewrite_ttl": 20
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "protocol": "quic",
+            "geosite": "youtube"
+          }
+        ],
+        "server": "block-dns",
+        "rewrite_ttl": 20,
+        "disable_cache": true
       },
       {
         "outbound": "any",
-        "server": "local-dns",
-        "rewrite_ttl": 50
+        "ip_version": 6,
+        "server": "google6",
+        "rewrite_ttl": 30
       },
       {
-        "geosite": ["rule-sosmed", "rule-streaming"],
-        "server": "cloudflare-dns",
-        "rewrite_ttl": 20
+        "outbound": "any",
+        "query_type": "HTTPS",
+        "server": "googleh",
+        "rewrite_ttl": 30
       },
       {
-        "geosite": ["category-ads-all", "rule-ads", "oisd-full"],
-        "server": "block-dns",
-        "rewrite_ttl": 20
+        "outbound": "any",
+        "protocol": "tls",
+        "server": "googlet",
+        "rewrite_ttl": 30
       },
       {
-        "geosite": ["oisd-nsfw","category-porn"],
-        "server": "block-dns",
-        "rewrite_ttl": 20
+        "outbound": "any",
+        "server": "google",
+        "rewrite_ttl": 30
       }
     ],
-    "strategy": "ipv4_only",
+    "strategy": "prefer_ipv4",
     "reverse_mapping": true,
-    "independent_cache": true,
-    "disable_cache": false,
-    "disable_expire": false
+    "independent_cache": true
+  },
+"experimental": {
+    "clash_api": {
+      "external_controller": "0.0.0.0:9090",
+      "external_ui": "dashboard",
+      "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/releases/download/v1.113.1/dist.zip",
+      "external_ui_download_detour": "direct",
+      "secret": "Avatar4ld",
+      "store_mode": false,
+      "store_selected": true,
+      "store_fakeip": false,
+      "cache_file": "cache.db"
+    }
   }
 }
 EOF
@@ -351,6 +398,24 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
     {
       "type": "dns",
       "tag": "dns-out"
+    },
+    {
+      "type": "selector",
+      "tag": "TrafficAds",
+      "outbounds": [
+        "direct",
+        "block"
+      ],
+      "default": "block"
+    },
+    {
+      "type": "selector",
+      "tag": "TrafficPorn",
+      "outbounds": [
+        "direct",
+        "block"
+      ],
+      "default": "block"
     }
   ],
   "route": {
@@ -360,36 +425,90 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
         "outbound": "dns-out"
       },
       {
-        "port": [53],
-        "outbound": "dns-out"
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "protocol": "quic",
+            "geosite": "youtube"
+          }
+        ],
+        "outbound": "block"
       },
       {
-        "domain_suffix": [
-          "googlesyndication.com"
+        "geosite": ["rule-ads", "oisd-full"],
+        "outbound": "TrafficAds"
+      },
+      {
+        "geosite": ["oisd-nsfw","category-porn"],
+        "outbound": "TrafficPorn"
+      },
+      {
+        "domain_suffix":[
+          "googlesyndication.com",
+          "cftunnel.com",
+          "argotunnel.com",
+          "komikcast.ch",
+          "void-scans.com",
+          "cosmicscans.id",
+          "asuracomics.gg",
+          "shinigami.sh",
+          "pikachu.my.id"
         ],
         "outbound": "direct"
       },
       {
-        "geoip": ["google", "facebook", "telegram", "twitter"],
+        "geoip": "facebook",
+        "port": [3478, 4244, 5222, 5223, 5242, 45395, 50318, 59234],
         "outbound": "direct"
       },
       {
-        "geosite": ["category-ads-all", "rule-ads", "oisd-full"],
-        "outbound": "block"
+        "protocol": "stun",
+        "outbound": "direct"
       },
       {
-        "geosite": ["oisd-nsfw","category-porn"],
-        "outbound": "block"
+        "geoip": [
+          "cloudflare", "cloudfront", "fastly",
+          "google", "facebook", "telegram", "twitter", "sg"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "geoip": "sg",
+        "geosite":[
+          "openai", "rule-umum", "rule-playstore", "videoconference",
+          "rule-gaming", "microsoft", "onedrive", "ecommerce-id",
+          "sourceforge", "onedrive", "mega", "github", "tiktok"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "geoip": "sg",
+        "geosite": ["rule-streaming", "rule-sosmed", "whatsapp"],
+        "outbound": "direct"
+      },
+      {
+        "geoip": "sg",
+        "geosite": ["rule-speedtest","urltest","rule-ipcheck"],
+        "outbound": "direct"
+      },
+      {
+        "port": [
+          21, 22, 23, 80, 81, 123, 143, 182, 183, 194, 443, 465, 587, 853, 993,
+          995, 998, 2052, 2053, 2082, 2083, 2086, 2095, 2096, 5222, 5228, 5229,
+          5230, 8000, 8080, 8081, 8088, 8443, 8880, 8883, 8888, 8889, 9993, 42069
+        ],
+        "outbound": "direct"
       }
     ],
     "geoip": {
       "path": "/usr/local/etc/sing-box/geo/geoip.db",
-      "download_url": "https://github.com/malikshi/v2ray-rules-dat/releases/latest/download/geoip.db",
+      "download_url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.db",
       "download_detour": "direct"
     },
     "geosite": {
       "path": "/usr/local/etc/sing-box/geo/geosite.db",
-      "download_url": "https://github.com/malikshi/v2ray-rules-dat/releases/latest/download/geosite.db",
+      "download_url": "https://github.com/rfxcll/v2ray-rules-dat/releases/latest/download/geosite.db",
       "download_detour": "direct"
     },
     "final": "direct",
@@ -412,12 +531,11 @@ create_account_file(){
     {
       "type": "vless",
       "tag": "vless-ws-in",
-      "listen": "127.0.0.1",
-      "listen_port": 31302,
-      "tcp_fast_open": false,
-      "domain_strategy": "ipv4_only",
+      "listen": "0.0.0.0",
+      "listen_port": 8001,
+      "tcp_fast_open": true,
+      "domain_strategy": "prefer_ipv4",
       "sniff": true,
-      "sniff_override_destination": false,
       "sniff_timeout": "300ms",
       "users": [
         {
@@ -428,7 +546,7 @@ create_account_file(){
       "transport": {
         "type": "ws",
         "path": "/vless",
-        "max_early_data": 2048,
+        "max_early_data": 0,
         "early_data_header_name": "Sec-WebSocket-Protocol"
       }
     }
@@ -443,12 +561,11 @@ EOF
     {
       "type": "vmess",
       "tag": "vmess-ws-in",
-      "listen": "127.0.0.1",
-      "listen_port": 31303,
-      "tcp_fast_open": false,
-      "domain_strategy": "ipv4_only",
+      "listen": "0.0.0.0",
+      "listen_port": 8002,
+      "tcp_fast_open": true,
+      "domain_strategy": "prefer_ipv4",
       "sniff": true,
-      "sniff_override_destination": false,
       "sniff_timeout": "300ms",
       "users": [
         {
@@ -460,7 +577,7 @@ EOF
       "transport": {
         "type": "ws",
         "path": "/vmess",
-        "max_early_data": 2048,
+        "max_early_data": 0,
         "early_data_header_name": "Sec-WebSocket-Protocol"
       }
     }
@@ -476,11 +593,10 @@ EOF
       "type": "trojan",
       "tag": "trojan-ws-in",
       "listen": "0.0.0.0",
-      "listen_port": 31304,
-      "tcp_fast_open": false,
-      "domain_strategy": "ipv4_only",
+      "listen_port": 8003,
+      "tcp_fast_open": true,
+      "domain_strategy": "prefer_ipv4",
       "sniff": true,
-      "sniff_override_destination": false,
       "sniff_timeout": "300ms",
       "users": [
         {
@@ -491,7 +607,7 @@ EOF
       "transport": {
         "type": "ws",
         "path": "/trojan",
-        "max_early_data": 2048,
+        "max_early_data": 0,
         "early_data_header_name": "Sec-WebSocket-Protocol"
       }
     }
