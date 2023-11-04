@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.0.7'
+SING_BOX_YES_VERSION='0.0.8'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -58,6 +58,9 @@ FILE_LIST=(
     "04_trojan_ws.json"
     "05_vless_reality.json"
     "06_socks.json"
+    "07_vless_httpupgrade.json"
+    "08_vmess_httpupgrade.json"
+    "09_trojan_httpupgrade.json"
 )
 ACCOUNT_FILE_LIST=(
         "02_vless_ws.json"
@@ -65,6 +68,9 @@ ACCOUNT_FILE_LIST=(
         "04_trojan_ws.json"
         "05_vless_reality.json"
         "06_socks.json"
+        "07_vless_httpupgrade.json"
+        "08_vmess_httpupgrade.json"
+        "09_trojan_httpupgrade.json"
     )
 
 #sing-box status define
@@ -244,7 +250,6 @@ create_config_file(){
     cat <<EOF >"${CONFIG_FILE_PATH}/00_log_and_dns.json"
 {
   "log": {
-    "disabled": false,
     "level": "info",
     "output": "/usr/local/sing-box/sing-box.log",
     "timestamp": true
@@ -326,8 +331,8 @@ create_config_file(){
       {
         "geosite": "rule-malicious",
         "server": "block-dns",
-        "rewrite_ttl": 20,
-        "disable_cache": true
+        "disable_cache": true,
+        "rewrite_ttl": 20
       },
       {
         "type": "logical",
@@ -339,24 +344,24 @@ create_config_file(){
           }
         ],
         "server": "block-dns",
-        "rewrite_ttl": 20,
-        "disable_cache": true
+        "disable_cache": true,
+        "rewrite_ttl": 20
       },
       {
-        "outbound": "any",
         "ip_version": 6,
+        "outbound": "any",
         "server": "google6",
         "rewrite_ttl": 30
       },
       {
-        "outbound": "any",
         "query_type": "HTTPS",
+        "outbound": "any",
         "server": "googleh",
         "rewrite_ttl": 30
       },
       {
-        "outbound": "any",
         "protocol": "tls",
+        "outbound": "any",
         "server": "googlet",
         "rewrite_ttl": 30
       },
@@ -366,20 +371,18 @@ create_config_file(){
         "rewrite_ttl": 30
       }
     ],
-    "strategy": "prefer_ipv4",
     "reverse_mapping": true,
+    "strategy": "prefer_ipv4",
     "independent_cache": true
   },
-"experimental": {
+  "experimental": {
     "clash_api": {
       "external_controller": "0.0.0.0:9090",
       "external_ui": "dashboard",
       "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/releases/download/v1.113.1/dist.zip",
       "external_ui_download_detour": "direct",
       "secret": "Avatar4ld",
-      "store_mode": false,
       "store_selected": true,
-      "store_fakeip": false,
       "cache_file": "cache.db"
     }
   }
@@ -423,6 +426,16 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
     }
   ],
   "route": {
+    "geoip": {
+      "path": "/usr/local/etc/sing-box/geo/geoip.db",
+      "download_url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.db",
+      "download_detour": "direct"
+    },
+    "geosite": {
+      "path": "/usr/local/etc/sing-box/geo/geosite.db",
+      "download_url": "https://github.com/rfxcll/v2ray-rules-dat/releases/latest/download/geosite.db",
+      "download_detour": "direct"
+    },
     "rules": [
       {
         "protocol": "dns",
@@ -440,15 +453,21 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
         "outbound": "block"
       },
       {
-        "geosite": ["rule-ads", "oisd-full"],
+        "geosite": [
+          "rule-ads",
+          "oisd-full"
+        ],
         "outbound": "TrafficAds"
       },
       {
-        "geosite": ["oisd-nsfw","category-porn"],
+        "geosite": [
+          "oisd-nsfw",
+          "category-porn"
+        ],
         "outbound": "TrafficPorn"
       },
       {
-        "domain_suffix":[
+        "domain_suffix": [
           "googlesyndication.com",
           "cftunnel.com",
           "argotunnel.com",
@@ -463,7 +482,16 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
       },
       {
         "geoip": "facebook",
-        "port": [3478, 4244, 5222, 5223, 5242, 45395, 50318, 59234],
+        "port": [
+          3478,
+          4244,
+          5222,
+          5223,
+          5242,
+          45395,
+          50318,
+          59234
+        ],
         "outbound": "direct"
       },
       {
@@ -472,49 +500,99 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
       },
       {
         "geoip": [
-          "cloudflare", "cloudfront", "fastly",
-          "google", "facebook", "telegram", "twitter", "sg"
+          "cloudflare",
+          "cloudfront",
+          "fastly",
+          "google",
+          "facebook",
+          "telegram",
+          "twitter",
+          "sg"
         ],
         "outbound": "direct"
       },
       {
-        "geoip": "sg",
-        "geosite":[
-          "openai", "rule-umum", "rule-playstore", "videoconference",
-          "rule-gaming", "microsoft", "onedrive", "ecommerce-id",
-          "sourceforge", "onedrive", "mega", "github", "tiktok"
+        "geosite": [
+          "openai",
+          "rule-umum",
+          "rule-playstore",
+          "videoconference",
+          "rule-gaming",
+          "microsoft",
+          "onedrive",
+          "ecommerce-id",
+          "sourceforge",
+          "onedrive",
+          "mega",
+          "github",
+          "tiktok"
         ],
+        "geoip": "sg",
         "outbound": "direct"
       },
       {
+        "geosite": [
+          "rule-streaming",
+          "rule-sosmed",
+          "whatsapp"
+        ],
         "geoip": "sg",
-        "geosite": ["rule-streaming", "rule-sosmed", "whatsapp"],
         "outbound": "direct"
       },
       {
+        "geosite": [
+          "rule-speedtest",
+          "urltest",
+          "rule-ipcheck"
+        ],
         "geoip": "sg",
-        "geosite": ["rule-speedtest","urltest","rule-ipcheck"],
         "outbound": "direct"
       },
       {
         "port": [
-          21, 22, 23, 80, 81, 123, 143, 182, 183, 194, 443, 465, 587, 853, 993,
-          995, 998, 2052, 2053, 2082, 2083, 2086, 2095, 2096, 5222, 5228, 5229,
-          5230, 8000, 8080, 8081, 8088, 8443, 8880, 8883, 8888, 8889, 9993, 42069
+          21,
+          22,
+          23,
+          80,
+          81,
+          123,
+          143,
+          182,
+          183,
+          194,
+          443,
+          465,
+          587,
+          853,
+          993,
+          995,
+          998,
+          2052,
+          2053,
+          2082,
+          2083,
+          2086,
+          2095,
+          2096,
+          5222,
+          5228,
+          5229,
+          5230,
+          8000,
+          8080,
+          8081,
+          8088,
+          8443,
+          8880,
+          8883,
+          8888,
+          8889,
+          9993,
+          42069
         ],
         "outbound": "direct"
       }
     ],
-    "geoip": {
-      "path": "/usr/local/etc/sing-box/geo/geoip.db",
-      "download_url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.db",
-      "download_detour": "direct"
-    },
-    "geosite": {
-      "path": "/usr/local/etc/sing-box/geo/geosite.db",
-      "download_url": "https://github.com/rfxcll/v2ray-rules-dat/releases/latest/download/geosite.db",
-      "download_detour": "direct"
-    },
     "final": "direct",
     "auto_detect_interface": true
   }
@@ -544,7 +622,8 @@ create_account_file(){
       "users": [
         {
           "name": "default",
-          "uuid": "${uuid}"
+          "uuid": "${uuid}",
+          "flow": ""
         }
       ],
       "transport": {
@@ -679,6 +758,113 @@ EOF
           "password": "${uuid}"
         }
       ]
+    }
+  ]
+}
+EOF
+            ;;
+        "07_vless_httpupgrade.json")
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
+{
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-httpupgrade-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8004,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "${uuid}",
+          "flow": ""
+        }
+      ],
+      "multiplex": {
+        "enabled": true,
+        "brutal": {
+          "enabled": true,
+          "up_mbps": 200,
+          "down_mbps": 200
+        }
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/vless-h"
+      }
+    }
+  ]
+}
+
+EOF
+            ;;
+        "08_vmess_httpupgrade.json")
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
+{
+  "inbounds": [
+    {
+      "type": "vmess",
+      "tag": "vmess-httpupgrade-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8005,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "${uuid}",
+          "alterId": 0
+        }
+      ],
+      "multiplex": {
+        "enabled": true
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/vmess-h"
+      }
+    }
+  ]
+}
+
+EOF
+            ;;
+        "09_trojan_httpupgrade.json")
+            cat <<EOF >${CONFIG_FILE_PATH}/${file}
+{
+  "inbounds": [
+    {
+      "type": "trojan",
+      "tag": "trojan-httpupgrade-in",
+      "listen": "0.0.0.0",
+      "listen_port": 8006,
+      "tcp_fast_open": true,
+      "sniff": true,
+      "sniff_timeout": "300ms",
+      "domain_strategy": "prefer_ipv4",
+      "users": [
+        {
+          "name": "default",
+          "password": "${uuid}"
+        }
+      ],
+      "multiplex": {
+        "enabled": true,
+        "brutal": {
+          "enabled": true,
+          "up_mbps": 100,
+          "down_mbps": 100
+        }
+      },
+      "transport": {
+        "type": "httpupgrade",
+        "path": "/trojan-h"
+      }
     }
   ]
 }
@@ -1032,6 +1218,15 @@ add_new_account(){
                     ;;
                 "06_socks.json")
                     jq --arg name "$username" --arg password "$username" '.inbounds[0].users += [{"username": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
+                    ;;
+                "07_vless_httpupgrade.json")
+                    jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
+                    ;;
+                "08_vmess_httpupgrade.json")
+                    jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid,"alterId": 0}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
+                    ;;
+                "09_trojan_httpupgrade.json")
+                    jq --arg name "$username" --arg password "$uuid" '.inbounds[0].users += [{"name": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
                 *)
                     echo "Unknown configuration file: ${file}"
