@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.0.8'
+SING_BOX_YES_VERSION='0.1.0'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -40,6 +40,9 @@ CONFIG_FILE_PATH='/usr/local/etc/sing-box/config'
 
 #binary install path
 BINARY_FILE_PATH='/usr/local/bin/sing-box'
+
+#nginx config path
+NGINX_CONFIG_PATH="/etc/nginx/conf.d/alone.conf"
 
 #scritp install path
 SCRIPT_FILE_PATH='/usr/local/sbin/sing-box'
@@ -798,7 +801,6 @@ EOF
     }
   ]
 }
-
 EOF
             ;;
         "08_vmess_httpupgrade.json")
@@ -976,6 +978,166 @@ backup_restore_config() {
         done
         LOGD "Restoring the sing-box configuration file is complete"
     fi
+}
+
+backup_nginx_config() {
+    if [ -f "/etc/nginx/conf.d/alone.conf" ]; then
+        backup_file="/etc/nginx/conf.d/alone.conf.bak"
+        sudo cp ${NGINX_CONFIG_PATH} $backup_file
+        echo "Backup konfigurasi Nginx ke $backup_file berhasil"
+    else
+        echo "Konfigurasi Nginx tidak ditemukan."
+    fi
+}
+
+# Fungsi untuk membuat konfigurasi Nginx baru
+create_nginx_config() {
+    read -r -p "Enter your vps domain: " server_name
+
+    # Buat konfigurasi baru dengan server_name yang dimasukkan
+    cat <<EOF >${$NGINX_CONFIG_PATH}
+map \$http_sec_websocket_key \$proxy_location {
+    "~.+" @proxy;
+    default @proxy2;
+}
+
+map \$uri \$backend_info {
+    /vless   "127.0.0.1:8001";
+    /vmess   "127.0.0.1:8002";
+    /trojan  "127.0.0.1:8003";
+    /vless-h   "127.0.0.1:8004";
+    /vmess-h   "127.0.0.1:8005";
+    /trojan-h  "127.0.0.1:8006";
+}
+
+server {
+    listen 80 so_keepalive=on;
+    listen [::]:80 so_keepalive=on;
+    listen 8080 so_keepalive=on;
+    listen [::]:8080 so_keepalive=on;
+    listen 8880 so_keepalive=on;
+    listen [::]:8880 so_keepalive=on;
+    listen 2052 so_keepalive=on;
+    listen [::]:2052 so_keepalive=on;
+    listen 2082 so_keepalive=on;
+    listen [::]:2082 so_keepalive=on;
+    listen 2086 so_keepalive=on;
+    listen [::]:2086 so_keepalive=on;
+    listen 2095 so_keepalive=on;
+    listen [::]:2095 so_keepalive=on;
+
+    server_name $server_name;
+    
+    location / {
+        return 404;
+    }
+
+    location ~ ^/([^/]+)/ {
+        rewrite ^/([^/]+)/(.*)\$ /\$2 break;
+        try_files /\$backend_info \$proxy_location;
+    }
+
+    location @proxy {
+        if (\$http_upgrade != "websocket") {
+            return 404;
+        }
+        proxy_pass http://\$backend_info;
+        proxy_redirect off;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$http_x_forwarded_for;
+        proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
+        proxy_read_timeout 52w;
+    }
+    location @proxy2 {
+        proxy_pass http://\$backend_info;
+        proxy_redirect off;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$http_x_forwarded_for;
+        proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
+        proxy_read_timeout 52w;
+    }
+}
+server {
+    listen 443 ssl so_keepalive=on;
+    listen [::]:443 ssl so_keepalive=on;
+    listen 8443 ssl so_keepalive=on;
+    listen [::]:8443 ssl so_keepalive=on;
+    listen 2053 ssl so_keepalive=on;
+    listen [::]:2053 ssl so_keepalive=on;
+    listen 2083 ssl so_keepalive=on;
+    listen [::]:2083 ssl so_keepalive=on;
+    listen 2087 ssl so_keepalive=on;
+    listen [::]:2087 ssl so_keepalive=on;
+    listen 2096 ssl so_keepalive=on;
+    listen [::]:2096 ssl so_keepalive=on;
+    http2 on;
+
+    server_name $server_name;
+ 
+    ssl_certificate /etc/v2ray-agent/tls/$server_name.crt;
+    ssl_certificate_key /etc/v2ray-agent/tls/$server_name.key;
+    ssl_session_timeout 50m;
+    ssl_prefer_server_ciphers off;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    
+    ssl_session_tickets on;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    resolver 8.8.8.8 valid=60s;
+    resolver_timeout 2s;
+    
+    client_header_timeout 1071906480m;
+    keepalive_timeout 1071906480m;
+
+    location / {
+        return 404;
+    }
+
+    location ~ ^/([^/]+)/ {
+        rewrite ^/([^/]+)/(.*)\$ /\$2 break;
+        try_files /\$backend_info \$proxy_location;
+    }
+
+    location @proxy {
+        if (\$http_upgrade != "websocket") {
+            return 404;
+        }
+    
+        proxy_pass http://\$backend_info;
+        proxy_redirect off;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_read_timeout 52w;
+    }
+
+    location @proxy2 {
+        proxy_pass http://\$backend_info;
+        proxy_redirect off;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$http_x_forwarded_for;
+        proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
+        proxy_read_timeout 52w;
+    }
+}
+EOF
+    echo "Konfigurasi Nginx untuk $server_name telah dibuat."
+    systemctl reload nginx
 }
 
 #install sing-box,in this function we will download binary,paremete $1 will be used as version if it's given
@@ -1555,6 +1717,7 @@ show_other_menu(){
     echo -e "${green}0.${plain} Back to Menu"
     echo -e "${green}1.${plain} Key to turn on bbr"
     echo -e "${green}2.${plain} Key to apply for an SSL certificate"
+    echo -e "${green}3.${plain} Nginx menu"
     echo "------------------------------------------"
     echo && read -p "Please enter your choice[0-2]: " num
 
@@ -1567,6 +1730,35 @@ show_other_menu(){
         ;;
     2)
         ssl_cert_issue
+        ;;
+    3)
+        show_nginx_menu
+        ;;
+    *)
+        LOGE "Please enter the correct option [0-2]"
+        ;;
+    esac
+}
+
+#show nginx menu
+show_nginx_menu() {
+    echo "Nginx Menu"
+    echo "------------------------------------------"
+    echo -e "${green}0.${plain} Back to Menu"
+    echo -e "${green}1.${plain} Backup Old Configuration"
+    echo -e "${green}2.${plain} Apply New Configuration"
+    echo "------------------------------------------"
+    echo && read -p "Please enter your choice[0-2]: " num
+
+    case "${num}" in
+    0)
+        show_menu
+        ;;
+    1)
+        backup_nginx_config
+        ;;
+    2)
+        create_nginx_config
         ;;
     *)
         LOGE "Please enter the correct option [0-2]"
