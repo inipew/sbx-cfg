@@ -629,6 +629,9 @@ create_account_file(){
           "flow": ""
         }
       ],
+      "multiplex": {
+        "enabled": true
+      },
       "transport": {
         "type": "ws",
         "path": "/vless",
@@ -660,6 +663,9 @@ EOF
           "alterId": 0
         }
       ],
+      "multiplex": {
+        "enabled": true
+      },
       "transport": {
         "type": "ws",
         "path": "/vmess",
@@ -690,6 +696,9 @@ EOF
           "password": "${uuid}"
         }
       ],
+      "multiplex": {
+        "enabled": true
+      },
       "transport": {
         "type": "ws",
         "path": "/trojan",
@@ -736,6 +745,9 @@ EOF
           ],
           "max_time_difference": "2m"
         }
+      },
+      "multiplex": {
+        "enabled": true
       }
     }
   ]
@@ -787,12 +799,7 @@ EOF
         }
       ],
       "multiplex": {
-        "enabled": true,
-        "brutal": {
-          "enabled": true,
-          "up_mbps": 200,
-          "down_mbps": 200
-        }
+        "enabled": true
       },
       "transport": {
         "type": "httpupgrade",
@@ -856,12 +863,7 @@ EOF
         }
       ],
       "multiplex": {
-        "enabled": true,
-        "brutal": {
-          "enabled": true,
-          "up_mbps": 100,
-          "down_mbps": 100
-        }
+        "enabled": true
       },
       "transport": {
         "type": "httpupgrade",
@@ -995,7 +997,7 @@ create_nginx_config() {
     read -r -p "Enter your vps domain: " server_name
 
     # Buat konfigurasi baru dengan server_name yang dimasukkan
-    cat <<EOF >${$NGINX_CONFIG_PATH}
+    cat <<EOF >${NGINX_CONFIG_PATH}
 map \$http_sec_websocket_key \$proxy_location {
     "~.+" @proxy;
     default @proxy2;
