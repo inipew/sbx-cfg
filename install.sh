@@ -59,21 +59,19 @@ FILE_LIST=(
     "02_vless_ws.json"
     "03_vmess_ws.json"
     "04_trojan_ws.json"
-    "05_vless_reality.json"
-    "06_socks.json"
-    "07_vless_httpupgrade.json"
-    "08_vmess_httpupgrade.json"
-    "09_trojan_httpupgrade.json"
+    "05_socks.json"
+    "06_vless_httpupgrade.json"
+    "07_vmess_httpupgrade.json"
+    "08_trojan_httpupgrade.json"
 )
 ACCOUNT_FILE_LIST=(
         "02_vless_ws.json"
         "03_vmess_ws.json"
         "04_trojan_ws.json"
-        "05_vless_reality.json"
-        "06_socks.json"
-        "07_vless_httpupgrade.json"
-        "08_vmess_httpupgrade.json"
-        "09_trojan_httpupgrade.json"
+        "05_socks.json"
+        "06_vless_httpupgrade.json"
+        "07_vmess_httpupgrade.json"
+        "08_trojan_httpupgrade.json"
     )
 
 #sing-box status define
@@ -710,51 +708,7 @@ EOF
 }
 EOF
             ;;
-        "05_vless_reality.json")
-            cat <<EOF >${CONFIG_FILE_PATH}/${file}
-{
-  "inbounds": [
-    {
-      "type": "vless",
-      "tag": "vless-reality-in",
-      "listen": "0.0.0.0",
-      "listen_port": 18443,
-      "tcp_fast_open": true,
-      "sniff": true,
-      "sniff_timeout": "300ms",
-      "domain_strategy": "prefer_ipv4",
-      "users": [
-        {
-          "name": "default",
-          "uuid": "${uuid}",
-          "flow": "xtls-rprx-vision"
-        }
-      ],
-      "tls": {
-        "enabled": true,
-        "server_name": "help.shopee.co.id",
-        "reality": {
-          "enabled": true,
-          "handshake": {
-            "server": "akupew.xzvf.site",
-            "server_port": 443
-          },
-          "private_key": "cOQ1bytBn4NcwTdOfaXeAchXblGQTHTK6PCnUOrrXVY",
-          "short_id": [
-            "7d29144bdf87bf2f"
-          ],
-          "max_time_difference": "2m"
-        }
-      },
-      "multiplex": {
-        "enabled": true
-      }
-    }
-  ]
-}
-EOF
-            ;;
-        "06_socks.json")
+        "05_socks.json")
             cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
@@ -778,7 +732,7 @@ EOF
 }
 EOF
             ;;
-        "07_vless_httpupgrade.json")
+        "06_vless_httpupgrade.json")
             cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
@@ -810,7 +764,7 @@ EOF
 }
 EOF
             ;;
-        "08_vmess_httpupgrade.json")
+        "07_vmess_httpupgrade.json")
             cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
@@ -843,7 +797,7 @@ EOF
 
 EOF
             ;;
-        "09_trojan_httpupgrade.json")
+        "08_trojan_httpupgrade.json")
             cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
@@ -1377,19 +1331,16 @@ add_new_account(){
                 "04_trojan_ws.json")
                     jq --arg name "$username" --arg password "$uuid" '.inbounds[0].users += [{"name": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
-                "05_vless_reality.json")
-                    jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid, "flow": "xtls-rprx-vision"}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
-                    ;;
-                "06_socks.json")
+                "05_socks.json")
                     jq --arg name "$username" --arg password "$username" '.inbounds[0].users += [{"username": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
-                "07_vless_httpupgrade.json")
+                "06_vless_httpupgrade.json")
                     jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
-                "08_vmess_httpupgrade.json")
+                "07_vmess_httpupgrade.json")
                     jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid,"alterId": 0}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
-                "09_trojan_httpupgrade.json")
+                "08_trojan_httpupgrade.json")
                     jq --arg name "$username" --arg password "$uuid" '.inbounds[0].users += [{"name": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
                 *)
