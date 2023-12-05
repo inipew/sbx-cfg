@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.1.0'
+SING_BOX_YES_VERSION='0.2.0'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -60,18 +60,18 @@ FILE_LIST=(
     "03_vmess_ws.json"
     "04_trojan_ws.json"
     "05_socks.json"
-    "06_vless_httpupgrade.json"
-    "07_vmess_httpupgrade.json"
-    "08_trojan_httpupgrade.json"
+    "06_vless_hu.json"
+    "07_vmess_hu.json"
+    "08_trojan_hu.json"
 )
 ACCOUNT_FILE_LIST=(
         "02_vless_ws.json"
         "03_vmess_ws.json"
         "04_trojan_ws.json"
         "05_socks.json"
-        "06_vless_httpupgrade.json"
-        "07_vmess_httpupgrade.json"
-        "08_trojan_httpupgrade.json"
+        "06_vless_hu.json"
+        "07_vmess_hu.json"
+        "08_trojan_hu.json"
     )
 
 #sing-box status define
@@ -252,65 +252,29 @@ create_config_file(){
 {
   "log": {
     "level": "info",
-    "output": "/usr/local/sing-box/sing-box.log",
+    "output": "${DEFAULT_LOG_FILE_SAVE_PATH}",
     "timestamp": true
   },
   "dns": {
     "servers": [
       {
-        "tag": "google",
-        "address": "8.8.8.8",
-        "address_strategy": "prefer_ipv4",
-        "detour": "direct"
-      },
-      {
-        "tag": "googleh",
+        "tag": "dns_main",
         "address": "https://dns.google/dns-query",
-        "address_resolver": "local-dns",
+        "address_resolver": "dns_local",
         "address_strategy": "prefer_ipv4",
+        "strategy": "ipv4_only",
         "detour": "direct"
       },
       {
-        "tag": "googlet",
-        "address": "tls://dns.google",
-        "address_resolver": "local-dns",
-        "address_strategy": "prefer_ipv4",
-        "detour": "direct"
-      },
-      {
-        "tag": "google6",
-        "address": "2001:4860:4860::8888",
-        "address_strategy": "ipv6_only",
+        "tag": "dns_second",
+        "address": "https://dns64.dns.google/dns-query",
+        "address_resolver": "dns_local",
+        "address_strategy": "prefer_ipv6",
         "strategy": "ipv6_only",
         "detour": "direct"
       },
       {
-        "tag": "cloudflare4",
-        "address": "1.1.1.1",
-        "address_strategy": "prefer_ipv4",
-        "detour": "direct"
-      },
-      {
-        "tag": "cloudflare6",
-        "address": "2606:4700:4700::1111",
-        "address_strategy": "ipv6_only",
-        "strategy": "ipv6_only",
-        "detour": "direct"
-      },
-      {
-        "tag": "cloudflareh",
-        "address": "https://1.1.1.1/dns-query",
-        "address_strategy": "prefer_ipv4",
-        "detour": "direct"
-      },
-      {
-        "tag": "cloudflaret",
-        "address": "tls://1.1.1.1",
-        "address_strategy": "prefer_ipv4",
-        "detour": "direct"
-      },
-      {
-        "tag": "local-dns",
+        "tag": "dns_local",
         "address": "local",
         "address_strategy": "prefer_ipv4",
         "detour": "direct"
@@ -322,15 +286,7 @@ create_config_file(){
     ],
     "rules": [
       {
-        "domain_suffix": [
-          ".arpa.",
-          ".arpa"
-        ],
-        "server": "block-dns",
-        "rewrite_ttl": 20
-      },
-      {
-        "geosite": "rule-malicious",
+        "rule_set": "rule-malicious",
         "server": "block-dns",
         "disable_cache": true,
         "rewrite_ttl": 20
@@ -341,7 +297,7 @@ create_config_file(){
         "rules": [
           {
             "protocol": "quic",
-            "geosite": "youtube"
+            "rule_set": "youtube"
           }
         ],
         "server": "block-dns",
@@ -350,41 +306,34 @@ create_config_file(){
       },
       {
         "ip_version": 6,
+        "query_type": "AAAA",
         "outbound": "any",
-        "server": "google6",
-        "rewrite_ttl": 30
+        "server": "dns_second",
+        "rewrite_ttl": 25
       },
       {
-        "query_type": "HTTPS",
+        "query_type": "A",
         "outbound": "any",
-        "server": "googleh",
-        "rewrite_ttl": 30
-      },
-      {
-        "protocol": "tls",
-        "outbound": "any",
-        "server": "googlet",
-        "rewrite_ttl": 30
-      },
-      {
-        "outbound": "any",
-        "server": "google",
-        "rewrite_ttl": 30
+        "server": "dns_main",
+        "rewrite_ttl": 25
       }
     ],
-    "reverse_mapping": true,
-    "strategy": "prefer_ipv4",
-    "independent_cache": true
+    "independent_cache": true,
+    "reverse_mapping": true
   },
   "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "caches.db",
+      "cache_id": "akupew",
+      "store_fakeip": false
+    },
     "clash_api": {
       "external_controller": "0.0.0.0:9090",
       "external_ui": "dashboard",
-      "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/releases/download/v1.113.1/dist.zip",
+      "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
       "external_ui_download_detour": "direct",
-      "secret": "Avatar4ld",
-      "store_selected": true,
-      "cache_file": "cache.db"
+      "secret": "qwe123456"
     }
   }
 }
@@ -427,171 +376,148 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
     }
   ],
   "route": {
-    "geoip": {
-      "path": "/usr/local/etc/sing-box/geo/geoip.db",
-      "download_url": "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.db",
-      "download_detour": "direct"
-    },
-    "geosite": {
-      "path": "/usr/local/etc/sing-box/geo/geosite.db",
-      "download_url": "https://github.com/rfxcll/v2ray-rules-dat/releases/latest/download/geosite.db",
-      "download_detour": "direct"
-    },
     "rules": [
       {
-        "protocol": "dns",
+        "type": "logical",
+        "mode": "or",
+        "rules": [
+          {
+            "protocol": "dns"
+          },
+          {
+            "port": 53
+          }
+        ],
         "outbound": "dns-out"
+      },
+      {
+        "domain_suffix": [
+          "googlesyndication.com",
+          "appsflyer.com",
+          "cftunnel.com",
+          "argotunnel.com",
+          "komikcast.lol",
+          "void-scans.com",
+          "cosmicscans.id",
+          "asuratoon.com",
+          "shinigami.sh",
+          "pikachu.my.id",
+          "microsoftonline.com",
+          "windows.net",
+          "microsoft.com",
+          "live.com",
+          "sharepoint.com",
+          "openai.com",
+          "zerotier.com"
+        ],
+        "ip_cidr": [
+          "84.17.53.155/23",
+          "103.195.103.66/23",
+          "50.7.252.138/23",
+          "104.194.8.134/23"
+        ],
+        "port":[
+          43899,
+          9993
+        ],
+        "rule_set": [
+          "onedrive",
+          "microsoft",
+          "openai"
+        ],
+        "outbound": "direct"
       },
       {
         "type": "logical",
         "mode": "and",
         "rules": [
           {
-            "protocol": "quic",
-            "geosite": "youtube"
+            "protocol": "quic"
+          },
+          {
+            "rule_set": "youtube"
           }
         ],
         "outbound": "block"
       },
       {
-        "geosite": [
+        "rule_set": [
           "rule-ads",
           "oisd-full"
         ],
         "outbound": "TrafficAds"
       },
       {
-        "geosite": [
+        "rule_set": [
           "oisd-nsfw",
           "category-porn"
         ],
         "outbound": "TrafficPorn"
+      }
+    ],
+    "rule_set": [
+      {
+        "type": "remote",
+        "tag": "oisd-full",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-oisd-full.srs",
+        "download_detour": "direct"
       },
       {
-        "domain_suffix": [
-          "googlesyndication.com",
-          "cftunnel.com",
-          "argotunnel.com",
-          "komikcast.ch",
-          "void-scans.com",
-          "cosmicscans.id",
-          "asuracomics.gg",
-          "shinigami.sh",
-          "pikachu.my.id"
-        ],
-        "outbound": "direct"
+        "type": "remote",
+        "tag": "oisd-nsfw",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-oisd-nsfw.srs",
+        "download_detour": "direct"
       },
       {
-        "geoip": "facebook",
-        "port": [
-          3478,
-          4244,
-          5222,
-          5223,
-          5242,
-          45395,
-          50318,
-          59234
-        ],
-        "outbound": "direct"
+        "type": "remote",
+        "tag": "rule-ads",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-rule-ads.srs",
+        "download_detour": "direct"
       },
       {
-        "protocol": "stun",
-        "outbound": "direct"
+        "type": "remote",
+        "tag": "rule-malicious",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-rule-malicious.srs",
+        "download_detour": "direct"
       },
       {
-        "geoip": [
-          "cloudflare",
-          "cloudfront",
-          "fastly",
-          "google",
-          "facebook",
-          "telegram",
-          "twitter",
-          "sg"
-        ],
-        "outbound": "direct"
+        "type": "remote",
+        "tag": "category-porn",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-category-porn.srs",
+        "download_detour": "direct"
       },
       {
-        "geosite": [
-          "openai",
-          "rule-umum",
-          "rule-playstore",
-          "videoconference",
-          "rule-gaming",
-          "microsoft",
-          "onedrive",
-          "ecommerce-id",
-          "sourceforge",
-          "onedrive",
-          "mega",
-          "github",
-          "tiktok"
-        ],
-        "geoip": "sg",
-        "outbound": "direct"
+        "type": "remote",
+        "tag": "openai",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-openai.srs",
+        "download_detour": "direct"
       },
       {
-        "geosite": [
-          "rule-streaming",
-          "rule-sosmed",
-          "whatsapp"
-        ],
-        "geoip": "sg",
-        "outbound": "direct"
+        "type": "remote",
+        "tag": "onedrive",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-onedrive.srs",
+        "download_detour": "direct"
       },
       {
-        "geosite": [
-          "rule-speedtest",
-          "urltest",
-          "rule-ipcheck"
-        ],
-        "geoip": "sg",
-        "outbound": "direct"
+        "type": "remote",
+        "tag": "microsoft",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-microsoft.srs",
+        "download_detour": "direct"
       },
       {
-        "port": [
-          21,
-          22,
-          23,
-          80,
-          81,
-          123,
-          143,
-          182,
-          183,
-          194,
-          443,
-          465,
-          587,
-          853,
-          993,
-          995,
-          998,
-          2052,
-          2053,
-          2082,
-          2083,
-          2086,
-          2095,
-          2096,
-          5222,
-          5228,
-          5229,
-          5230,
-          8000,
-          8080,
-          8081,
-          8088,
-          8443,
-          8880,
-          8883,
-          8888,
-          8889,
-          9993,
-          42069
-        ],
-        "outbound": "direct"
+        "type": "remote",
+        "tag": "youtube",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-youtube.srs",
+        "download_detour": "direct"
       }
     ],
     "final": "direct",
@@ -732,13 +658,13 @@ EOF
 }
 EOF
             ;;
-        "06_vless_httpupgrade.json")
+        "06_vless_hu.json")
             cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
     {
       "type": "vless",
-      "tag": "vless-httpupgrade-in",
+      "tag": "vless-hu-in",
       "listen": "0.0.0.0",
       "listen_port": 8004,
       "tcp_fast_open": true,
@@ -764,13 +690,13 @@ EOF
 }
 EOF
             ;;
-        "07_vmess_httpupgrade.json")
+        "07_vmess_hu.json")
             cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
     {
       "type": "vmess",
-      "tag": "vmess-httpupgrade-in",
+      "tag": "vmess-hu-in",
       "listen": "0.0.0.0",
       "listen_port": 8005,
       "tcp_fast_open": true,
@@ -797,13 +723,13 @@ EOF
 
 EOF
             ;;
-        "08_trojan_httpupgrade.json")
+        "08_trojan_hu.json")
             cat <<EOF >${CONFIG_FILE_PATH}/${file}
 {
   "inbounds": [
     {
       "type": "trojan",
-      "tag": "trojan-httpupgrade-in",
+      "tag": "trojan-hu-in",
       "listen": "0.0.0.0",
       "listen_port": 8006,
       "tcp_fast_open": true,
@@ -944,14 +870,35 @@ backup_nginx_config() {
     else
         echo "Konfigurasi Nginx tidak ditemukan."
     fi
+
+    show_nginx_menu
 }
 
 # Fungsi untuk membuat konfigurasi Nginx baru
 create_nginx_config() {
+
+    cat <<'EOF' >"${NGINX_CONFIG_PATH}"
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ""      close;
+}
+
+map $remote_addr $proxy_forwarded_elem {
+    ~^[0-9.]+$        "for=$remote_addr";
+    ~^[0-9A-Fa-f:.]+$ "for=\"[$remote_addr]\"";
+    default           "for=unknown";
+}
+
+map $http_forwarded $proxy_add_forwarded {
+    "~^(,[ \\t]*)*([!#$%&'*+.^_`|~0-9A-Za-z-]+=([!#$%&'*+.^_`|~0-9A-Za-z-]+|\"([\\t \\x21\\x23-\\x5B\\x5D-\\x7E\\x80-\\xFF]|\\\\[\\t \\x21-\\x7E\\x80-\\xFF])*\"))?(;([!#$%&'*+.^_`|~0-9A-Za-z-]+=([!#$%&'*+.^_`|~0-9A-Za-z-]+|\"([\\t \\x21\\x23-\\x5B\\x5D-\\x7E\\x80-\\xFF]|\\\\[\\t \\x21-\\x7E\\x80-\\xFF])*\"))?)*([ \\t]*,([ \\t]*([!#$%&'*+.^_`|~0-9A-Za-z-]+=([!#$%&'*+.^_`|~0-9A-Za-z-]+|\"([\\t \\x21\\x23-\\x5B\\x5D-\\x7E\\x80-\\xFF]|\\\\[\\t \\x21-\\x7E\\x80-\\xFF])*\"))?(;([!#$%&'*+.^_`|~0-9A-Za-z-]+=([!#$%&'*+.^_`|~0-9A-Za-z-]+|\"([\\t \\x21\\x23-\\x5B\\x5D-\\x7E\\x80-\\xFF]|\\\\[\\t \\x21-\\x7E\\x80-\\xFF])*\"))?)*)?)*$" "$http_forwarded, $proxy_forwarded_elem";
+    default "$proxy_forwarded_elem";
+}
+EOF
+
     read -r -p "Enter your vps domain: " server_name
 
     # Buat konfigurasi baru dengan server_name yang dimasukkan
-    cat <<EOF >${NGINX_CONFIG_PATH}
+    cat <<EOF >>"${NGINX_CONFIG_PATH}"
 map \$http_sec_websocket_key \$proxy_location {
     "~.+" @proxy;
     default @proxy2;
@@ -998,7 +945,6 @@ server {
             return 404;
         }
         proxy_pass http://\$backend_info;
-        proxy_redirect off;
 
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -1007,10 +953,14 @@ server {
         proxy_set_header X-Real-IP \$http_x_forwarded_for;
         proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
         proxy_read_timeout 52w;
+        proxy_redirect off;
     }
     location @proxy2 {
+        if (\$http_upgrade != "websocket") {
+            return 404;
+        }
         proxy_pass http://\$backend_info;
-        proxy_redirect off;
+
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -1018,6 +968,7 @@ server {
         proxy_set_header X-Real-IP \$http_x_forwarded_for;
         proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
         proxy_read_timeout 52w;
+        proxy_redirect off;
     }
 }
 server {
@@ -1068,7 +1019,6 @@ server {
         }
     
         proxy_pass http://\$backend_info;
-        proxy_redirect off;
 
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -1077,11 +1027,15 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_read_timeout 52w;
+        proxy_redirect off;
     }
 
     location @proxy2 {
+        if (\$http_upgrade != "websocket") {
+            return 404;
+        }
         proxy_pass http://\$backend_info;
-        proxy_redirect off;
+        
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -1089,11 +1043,16 @@ server {
         proxy_set_header X-Real-IP \$http_x_forwarded_for;
         proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
         proxy_read_timeout 52w;
+        proxy_redirect off;
     }
 }
 EOF
     echo "Konfigurasi Nginx untuk $server_name telah dibuat."
-    systemctl reload nginx
+    nginx -s reload
+    systemctl restart nginx
+    echo "Nginx berhasil direload."
+
+    show_nginx_menu
 }
 
 #install sing-box,in this function we will download binary,paremete $1 will be used as version if it's given
@@ -1200,18 +1159,19 @@ install_systemd_service() {
     fi
     cat >${SERVICE_FILE_PATH} <<EOF
 [Unit]
-Description=sing-box Service
-Documentation=https://sing-box.sagernet.org/
+Description=sing-box service
+Documentation=https://sing-box.sagernet.org
 After=network.target nss-lookup.target
-Wants=network.target
+
 [Service]
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SYS_PTRACE CAP_DAC_READ_SEARCH
-ExecStart=${BINARY_FILE_PATH} -D /var/lib/sing-box -C ${CONFIG_FILE_PATH} run
+ExecStart=${BINARY_FILE_PATH} run -D /var/lib/sing-box -C ${CONFIG_FILE_PATH}
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=10s
 LimitNOFILE=infinity
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -1307,7 +1267,7 @@ user_exists() {
 add_new_account(){
     read -r -p "Enter the name for the new user: " username
 
-    read -r -p "Enter UUID [default=automatically generated]: " input_uuid
+    read -r -p "Enter UUID [enter=automatically generated]: " input_uuid
     if [[ -z "$input_uuid" ]]; then
         uuid=$(/usr/local/bin/sing-box generate uuid)
     else
@@ -1334,13 +1294,13 @@ add_new_account(){
                 "05_socks.json")
                     jq --arg name "$username" --arg password "$username" '.inbounds[0].users += [{"username": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
-                "06_vless_httpupgrade.json")
+                "06_vless_hu.json")
                     jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
-                "07_vmess_httpupgrade.json")
+                "07_vmess_hu.json")
                     jq --arg name "$username" --arg uuid "$uuid" '.inbounds[0].users += [{"name": $name, "uuid": $uuid,"alterId": 0}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
-                "08_trojan_httpupgrade.json")
+                "08_trojan_hu.json")
                     jq --arg name "$username" --arg password "$uuid" '.inbounds[0].users += [{"name": $name, "password": $password}]' "${CONFIG_FILE_PATH}/${file}" | sponge "${CONFIG_FILE_PATH}/${file}"
                     ;;
                 *)
@@ -1525,6 +1485,8 @@ show_help() {
     echo "sing-box              - Show shortcut menu (more features)"
     echo "sing-box start        - Start the sing-box service"
     echo "sing-box stop         - Stop sing-box service"
+    echo "sing-box add          - Add an account"
+    echo "sing-box del          - Delete an account"
     echo "sing-box restart      - Restart the sing-box service"
     echo "sing-box status       - Viewing sing-box status"
     echo "sing-box enable       - Setting the sing-box to boot up"
@@ -1799,6 +1761,12 @@ main() {
             ;;
         "clear")
             clear_log $2
+            ;;
+        "add")
+            add_new_account
+            ;;
+        "del")
+            remove_an_account
             ;;
         "update")
             if [[ $# == 2 ]]; then
