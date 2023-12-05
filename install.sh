@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.2.0'
+SING_BOX_YES_VERSION='0.2.1'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -297,6 +297,7 @@ create_config_file(){
         "rules": [
           {
             "protocol": "quic",
+          {
             "rule_set": "youtube"
           }
         ],
@@ -409,16 +410,6 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
           "sharepoint.com",
           "openai.com",
           "zerotier.com"
-        ],
-        "ip_cidr": [
-          "84.17.53.155/23",
-          "103.195.103.66/23",
-          "50.7.252.138/23",
-          "104.194.8.134/23"
-        ],
-        "port":[
-          43899,
-          9993
         ],
         "rule_set": [
           "onedrive",
