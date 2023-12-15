@@ -27,10 +27,12 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.2.1'
+SING_BOX_YES_VERSION='0.2.0'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
+
+DOMAIN=""
 
 #backup config path
 CONFIG_BACKUP_PATH='/usr/local/etc'
@@ -252,24 +254,22 @@ create_config_file(){
 {
   "log": {
     "level": "info",
-    "output": "${DEFAULT_LOG_FILE_SAVE_PATH}",
+    "output": "/usr/local/sing-box/sing-box.log",
     "timestamp": true
   },
   "dns": {
     "servers": [
       {
         "tag": "dns_main",
-        "address": "https://dns.google/dns-query",
+        "address": "https://dns.quad9.net/dns-query",
         "address_resolver": "dns_local",
-        "address_strategy": "prefer_ipv4",
-        "strategy": "ipv4_only",
         "detour": "direct"
       },
       {
         "tag": "dns_second",
-        "address": "https://dns64.dns.google/dns-query",
+        "address": "https://dns.google/dns-query",
         "address_resolver": "dns_local",
-        "address_strategy": "prefer_ipv6",
+        "address_strategy": "ipv6_only",
         "strategy": "ipv6_only",
         "detour": "direct"
       },
@@ -296,7 +296,8 @@ create_config_file(){
         "mode": "and",
         "rules": [
           {
-            "protocol": "quic",
+            "protocol": "quic"
+          },
           {
             "rule_set": "youtube"
           }
@@ -306,35 +307,35 @@ create_config_file(){
         "rewrite_ttl": 20
       },
       {
-        "ip_version": 6,
-        "query_type": "AAAA",
-        "outbound": "any",
+        "rule_set": [
+          "youtube",
+          "google"
+        ],
         "server": "dns_second",
-        "rewrite_ttl": 25
+        "rewrite_ttl": 20
       },
       {
-        "query_type": "A",
         "outbound": "any",
         "server": "dns_main",
         "rewrite_ttl": 25
       }
     ],
-    "independent_cache": true,
-    "reverse_mapping": true
+    "reverse_mapping": true,
+    "independent_cache": true
   },
   "experimental": {
     "cache_file": {
       "enabled": true,
       "path": "caches.db",
-      "cache_id": "akupew",
-      "store_fakeip": false
+      "cache_id": "sing"
     },
     "clash_api": {
       "external_controller": "0.0.0.0:9090",
       "external_ui": "dashboard",
       "external_ui_download_url": "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip",
       "external_ui_download_detour": "direct",
-      "secret": "qwe123456"
+      "secret": "qwe12345",
+      "default_mode": "Rule"
     }
   }
 }
@@ -393,10 +394,11 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
       },
       {
         "domain_suffix": [
-          "googlesyndication.com",
-          "appsflyer.com",
+          ".googlesyndication.com",
+          ".googleadservices.com",
+          ".appsflyer.com",
           "cftunnel.com",
-          "argotunnel.com",
+          ".argotunnel.com",
           "komikcast.lol",
           "void-scans.com",
           "cosmicscans.id",
@@ -433,8 +435,8 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
       },
       {
         "rule_set": [
-          "rule-ads",
-          "oisd-full"
+          "oisd-full",
+          "rule-ads"
         ],
         "outbound": "TrafficAds"
       },
@@ -466,6 +468,13 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
         "tag": "rule-ads",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-rule-ads.srs",
+        "download_detour": "direct"
+      },
+      {
+        "type": "remote",
+        "tag": "d3ward",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-d3ward.srs",
         "download_detour": "direct"
       },
       {
@@ -508,6 +517,13 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
         "tag": "youtube",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-youtube.srs",
+        "download_detour": "direct"
+      },
+      {
+        "type": "remote",
+        "tag": "google",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-google.srs",
         "download_detour": "direct"
       }
     ],
@@ -886,22 +902,17 @@ map $http_forwarded $proxy_add_forwarded {
 }
 EOF
 
-    read -r -p "Enter your vps domain: " server_name
+    read -r -p "Enter your vps domain: " DOMAIN
 
     # Buat konfigurasi baru dengan server_name yang dimasukkan
     cat <<EOF >>"${NGINX_CONFIG_PATH}"
-map \$http_sec_websocket_key \$proxy_location {
-    "~.+" @proxy;
-    default @proxy2;
-}
-
-map \$uri \$backend_info {
-    /vless   "127.0.0.1:8001";
-    /vmess   "127.0.0.1:8002";
-    /trojan  "127.0.0.1:8003";
-    /vless-h   "127.0.0.1:8004";
-    /vmess-h   "127.0.0.1:8005";
-    /trojan-h  "127.0.0.1:8006";
+map $uri:$http_sec_websocket_key $backend_info {
+    ~^/vless:(.+)$   "127.0.0.1:8001";
+    ~^/vmess:(.+)$   "127.0.0.1:8002";
+    ~^/trojan:(.+)$  "127.0.0.1:8003";
+    ~^/vless:       "127.0.0.1:8004";
+    ~^/vmess:       "127.0.0.1:8005";
+    ~^/trojan:      "127.0.0.1:8006";
 }
 
 server {
@@ -920,7 +931,7 @@ server {
     listen 2095 so_keepalive=on;
     listen [::]:2095 so_keepalive=on;
 
-    server_name $server_name;
+    server_name ${DOMAIN};
     
     location / {
         return 404;
@@ -928,7 +939,7 @@ server {
 
     location ~ ^/([^/]+)/ {
         rewrite ^/([^/]+)/(.*)\$ /\$2 break;
-        try_files /\$backend_info \$proxy_location;
+        try_files /\$backend_info @proxy;
     }
 
     location @proxy {
@@ -946,22 +957,8 @@ server {
         proxy_read_timeout 52w;
         proxy_redirect off;
     }
-    location @proxy2 {
-        if (\$http_upgrade != "websocket") {
-            return 404;
-        }
-        proxy_pass http://\$backend_info;
-
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$http_x_forwarded_for;
-        proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
-        proxy_read_timeout 52w;
-        proxy_redirect off;
-    }
 }
+
 server {
     listen 443 ssl so_keepalive=on;
     listen [::]:443 ssl so_keepalive=on;
@@ -977,10 +974,10 @@ server {
     listen [::]:2096 ssl so_keepalive=on;
     http2 on;
 
-    server_name $server_name;
+    server_name ${DOMAIN};
  
-    ssl_certificate /etc/v2ray-agent/tls/$server_name.crt;
-    ssl_certificate_key /etc/v2ray-agent/tls/$server_name.key;
+    ssl_certificate /etc/v2ray-agent/tls/${DOMAIN}.crt;
+    ssl_certificate_key /etc/v2ray-agent/tls/${DOMAIN}.key;
     ssl_session_timeout 50m;
     ssl_prefer_server_ciphers off;
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -1001,7 +998,7 @@ server {
 
     location ~ ^/([^/]+)/ {
         rewrite ^/([^/]+)/(.*)\$ /\$2 break;
-        try_files /\$backend_info \$proxy_location;
+        try_files /\$backend_info @proxy;
     }
 
     location @proxy {
@@ -1020,25 +1017,9 @@ server {
         proxy_read_timeout 52w;
         proxy_redirect off;
     }
-
-    location @proxy2 {
-        if (\$http_upgrade != "websocket") {
-            return 404;
-        }
-        proxy_pass http://\$backend_info;
-        
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$http_x_forwarded_for;
-        proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
-        proxy_read_timeout 52w;
-        proxy_redirect off;
-    }
 }
 EOF
-    echo "Konfigurasi Nginx untuk $server_name telah dibuat."
+    echo "Konfigurasi Nginx untuk ${DOMAIN} telah dibuat."
     nginx -s reload
     systemctl restart nginx
     echo "Nginx berhasil direload."
@@ -1258,7 +1239,7 @@ user_exists() {
 add_new_account(){
     read -r -p "Enter the name for the new user: " username
 
-    read -r -p "Enter UUID [enter=automatically generated]: " input_uuid
+    read -r -p "Enter UUID [default=automatically generated]: " input_uuid
     if [[ -z "$input_uuid" ]]; then
         uuid=$(/usr/local/bin/sing-box generate uuid)
     else
@@ -1338,33 +1319,212 @@ remove_an_account(){
         echo "Invalid input. Please enter a valid number."
     fi
 }
-show_user_details(){
-    selected_number=$1
-    for file in "${ACCOUNT_FILE_LIST[@]}"; do
-        if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
-            LOGE "There are currently no ${CONFIG_FILE_PATH}/${file} configuration files"
-            return 0
-        else
-            jq --argjson index "$selected_number" '.inbounds[0].users[$index - 1]' "${CONFIG_FILE_PATH}/${file}"
-        fi
-    done
+# show_user_details(){
+#     selected_number=$1
+#     for file in "${ACCOUNT_FILE_LIST[@]}"; do
+#         if [[ ! -f "${CONFIG_FILE_PATH}/${file}" ]]; then
+#             LOGE "There are currently no ${CONFIG_FILE_PATH}/${file} configuration files"
+#             return 0
+#         else
+#             jq --argjson index "$selected_number" '.inbounds[0].users[$index - 1]' "${CONFIG_FILE_PATH}/${file}"
+#         fi
+#     done
+# }
+# show_account_details(){
+#     display_users
+#     total_users=$(jq '.inbounds[0].users | length' "${CONFIG_FILE_PATH}/02_vless_ws.json")
+#     read -p "Please enter your choice[1-${total_users}]:" num
+#     if [[ $num =~ ^[0-9]+$ ]]; then
+#         total_users=$(jq '.inbounds[0].users | length' "${CONFIG_FILE_PATH}/02_vless_ws.json")
+#         if ((num >= 1 && num <= total_users)); then
+#             # Valid selection, proceed with showing user details
+#             echo "User details: "
+#             show_user_details "$num"
+#         else
+#             echo "Invalid selection. Please choose a number between 1 and $total_users."
+#         fi
+#     else
+#         echo "Invalid input. Please enter a valid number."
+#     fi
+# }
+select_user() {
+  local json_file="$1"
+
+  # Check if the file exists
+  if [ ! -f "$json_file" ]; then
+    echo "Error: JSON file not found at $json_file"
+    return 1
+  fi
+
+  local protocol=$(jq -r '.inbounds[0].type' "$json_file")
+  local user_list=""
+
+  if [ "$protocol" == "socks" ]; then
+    user_list=($(jq -r '.inbounds[0].users[] | select(.username != null) | .username' "$json_file"))
+  else
+    user_list=($(jq -r '.inbounds[0].users[] | select(.name != null) | .name' "$json_file"))
+  fi
+
+  echo "Select a user:"
+  for ((i = 0; i < ${#user_list[@]}; i++)); do
+    echo "$((i + 1)): ${user_list[$i]}"
+  done
+
+  read -p "Enter the number (1-${#user_list[@]}): " selected_number
+
+  if [[ $selected_number -ge 1 && $selected_number -le ${#user_list[@]} ]]; then
+    local selected_user="${user_list[$((selected_number - 1))]}"
+    generate_account_details "$json_file" "$selected_user" "$protocol"
+  else
+    echo "Invalid selection. Please enter a number between 1 and ${#user_list[@]}."
+  fi
 }
-show_account_details(){
-    display_users
-    total_users=$(jq '.inbounds[0].users | length' "${CONFIG_FILE_PATH}/02_vless_ws.json")
-    read -p "Please enter your choice[1-${total_users}]:" num
-    if [[ $num =~ ^[0-9]+$ ]]; then
-        total_users=$(jq '.inbounds[0].users | length' "${CONFIG_FILE_PATH}/02_vless_ws.json")
-        if ((num >= 1 && num <= total_users)); then
-            # Valid selection, proceed with showing user details
-            echo "User details: "
-            show_user_details "$num"
-        else
-            echo "Invalid selection. Please choose a number between 1 and $total_users."
-        fi
-    else
-        echo "Invalid input. Please enter a valid number."
-    fi
+
+generate_account_details() {
+  local json_file="$1"
+  local selected_user="$2"
+  local protocol="$3"
+
+  # Check if the file exists
+  if [ ! -f "$json_file" ]; then
+    echo "Error: JSON file not found at $json_file"
+    return 1
+  fi
+
+  # Extracting values using jq for the selected user
+  local remarks=""
+  local id=""
+
+  if [ "$protocol" == "trojan" ]; then
+    id=$(jq -r --arg user "$selected_user" '.inbounds[0].users[] | select(.name == $user) | "\(.password)"' "$json_file")
+    remarks=$(jq -r --arg user "$selected_user" '.inbounds[0].users[] | select(.name == $user) | "\(.name)"' "$json_file")
+  elif [ "$protocol" == "socks" ]; then
+    id=$(jq -r --arg user "$selected_user" '.inbounds[0].users[] | select(.username == $user) | "\(.password)"' "$json_file")
+    remarks=$(jq -r --arg user "$selected_user" '.inbounds[0].users[] | select(.username == $user) | "\(.username)"' "$json_file")
+  else
+    id=$(jq -r --arg user "$selected_user" '.inbounds[0].users[] | select(.name == $user) | "\(.uuid)"' "$json_file")
+    remarks=$(jq -r --arg user "$selected_user" '.inbounds[0].users[] | select(.name == $user) | "\(.name)"' "$json_file")
+  fi
+
+  local port_tls="443,2053,2083,2087,2096,8443"  # Cloudflare's HTTPS WebSocket for TLS
+  local port_nontls="80,8080,8880,2052,2082,2086,2095"  # Cloudflare's HTTP WebSocket for non-TLS
+  local network=$(jq -r '.inbounds[0].transport.type' "$json_file")
+  local path=$(jq -r '.inbounds[0].transport.path' "$json_file")
+  local socks_port=$(jq -r '.inbounds[0].listen_port' "$json_file")
+  local currentDefaultTLSPort=443
+  local currentDefaultNTLSPort=80
+  local currentPath="/$remarks$path"
+
+  # Printing the result based on protocol
+  echo "================================"
+  echo "Details Account for $selected_user"
+  echo "Protocol    : $protocol"
+  echo "Remarks     : $remarks"
+  echo "Domain      : $DOMAIN"
+  if [ "$protocol" == "socks" ]; then
+    echo "Username    : $id"
+  fi
+  if [ "$protocol" == "trojan" ] || [ "$protocol" == "socks" ]; then
+    echo "Password    : $id"
+  else
+    echo "UUID        : $id"
+  fi
+  if [ "$protocol" != "socks" ]; then
+    echo "Port TLS    : $port_tls"
+    echo "Port NonTLS : $port_nontls"
+    echo "Network     : $network"
+    echo "Path        : /$remarks$path"
+  fi
+
+  echo ""
+  # Output link generation
+  if [ "$protocol" == "vless" ]; then
+    echo "Link $protocol TLS:"
+    echo "vless://${id}@${DOMAIN}:${currentDefaultTLSPort}?encryption=none&security=tls&type=${network}&host=${DOMAIN}&sni=${DOMAIN}&fp=chrome&path=${currentPath}#${remarks}_${protocol}_tls"
+    
+    echo ""
+    echo "Link $protocol nTLS:"
+    echo "vless://${id}@${DOMAIN}:${currentDefaultNTLSPort}?encryption=none&security=none&type=${network}&host=${DOMAIN}&sni=${DOMAIN}&fp=chrome&path=${currentPath}#${remarks}_${protocol}_ntls"
+  
+  elif [ "$protocol" == "vmess" ]; then
+    vmessJson_tls='{
+      "port": "'${currentDefaultTLSPort}'",
+      "ps": "'${remarks}'-'${protocol}'-TLS",
+      "tls": "tls",
+      "id": "'${id}'",
+      "aid": 0,
+      "v": 2,
+      "host": "'${DOMAIN}'",
+      "type": "none",
+      "path": "'${currentPath}'",
+      "net": "'${network}'",
+      "add": "'${DOMAIN}'",
+      "allowInsecure": 1,
+      "method": "none",
+      "peer": "'${DOMAIN}'",
+      "sni": "'${DOMAIN}'"
+    }'
+    echo "Link $protocol TLS:"
+    vmesstls=$(convert_to_base64 "$vmessJson_tls")
+    echo "vmess://${vmesstls}"
+
+
+    echo ""
+    echo "Link $protocol nTLS:"
+    vmessJson_ntls='{
+      "port": "'${currentDefaultNTLSPort}'",
+      "ps": "'${remarks}'_'${protocol}' nTLS",
+      "tls": "none",
+      "id": "'${id}'",
+      "aid": 0,
+      "v": 2,
+      "host": "'${DOMAIN}'",
+      "type": "none",
+      "path": "'${currentPath}'",
+      "net": "'${network}'",
+      "add": "'${DOMAIN}'",
+      "allowInsecure": 0,
+      "method": "none",
+      "peer": "'${DOMAIN}'",
+      "sni": "'${DOMAIN}'"
+    }'
+    vmessntls=$(convert_to_base64 "$vmessJson_ntls")
+    echo "vmess://${vmessntls}"
+  elif [ "$protocol" == "trojan" ]; then
+    echo "Link $protocol TLS:"
+    echo "trojan://${id}@${DOMAIN}:${currentDefaultTLSPort}?path=${currentPath}&security=tls&host=${DOMAIN}&type=${network}&sni=${DOMAIN}#${remarks}_${protocol}_tls"
+    
+    echo ""
+    echo "Link $protocol nTLS:"
+    echo "trojan://${id}@${DOMAIN}:${currentDefaultNTLSPort}?path=${currentPath}&security=none&host=${DOMAIN}&type=${network}&sni=${DOMAIN}#${remarks}_${protocol}_ntls"
+  elif [ "$protocol" == "socks" ]; then
+    echo "Link $protocol"
+    echo "https://t.me/socks?server=${DOMAIN}&port=${socks_port}&user=${remarks}&pass=${id}"
+  fi
+  echo ""
+  
+}
+convert_to_base64(){
+  qrCodeBase64Default=$(echo -n $1 | base64 -w 0)
+  qrCodeBase64Default="${qrCodeBase64Default// /}"
+  echo "$qrCodeBase64Default"
+}
+
+select_json_file() {
+  local selected_number
+  echo "Select JSON file:"
+  for ((i = 0; i < ${#ACCOUNT_FILE_LIST[@]}; i++)); do
+    echo "$((i + 1)): ${ACCOUNT_FILE_LIST[$i]}"
+  done
+
+  read -p "Enter the number (1-7): " selected_number
+
+  if [[ $selected_number -ge 1 && $selected_number -le 7 ]]; then
+    local json_file="$CONFIG_FILE_PATH/${ACCOUNT_FILE_LIST[$((selected_number - 1))]}"
+    select_user "$json_file"
+  else
+    echo "Invalid selection. Please enter a number between 1 and 7."
+  fi
 }
 
 #show logs
@@ -1511,7 +1671,7 @@ show_manageAccount(){
         remove_an_account && show_manageAccount
         ;;
     3)
-        show_account_details && show_manageAccount
+        select_json_file && show_manageAccount
         ;;
     4)
         display_users && show_manageAccount
