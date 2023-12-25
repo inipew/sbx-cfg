@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.2.0'
+SING_BOX_YES_VERSION='0.2.1'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -690,7 +690,7 @@ EOF
       },
       "transport": {
         "type": "httpupgrade",
-        "path": "/vless-h"
+        "path": "/vless"
       }
     }
   ]
@@ -722,7 +722,7 @@ EOF
       },
       "transport": {
         "type": "httpupgrade",
-        "path": "/vmess-h"
+        "path": "/vmess"
       }
     }
   ]
@@ -754,7 +754,7 @@ EOF
       },
       "transport": {
         "type": "httpupgrade",
-        "path": "/trojan-h"
+        "path": "/trojan"
       }
     }
   ]
@@ -906,7 +906,7 @@ EOF
 
     # Buat konfigurasi baru dengan server_name yang dimasukkan
     cat <<EOF >>"${NGINX_CONFIG_PATH}"
-map $uri:$http_sec_websocket_key $backend_info {
+map \$uri:\$http_sec_websocket_key \$backend_info {
     ~^/vless:(.+)$   "127.0.0.1:8001";
     ~^/vmess:(.+)$   "127.0.0.1:8002";
     ~^/trojan:(.+)$  "127.0.0.1:8003";
