@@ -261,16 +261,26 @@ create_config_file(){
     "servers": [
       {
         "tag": "dns_main",
-        "address": "https://dns.quad9.net/dns-query",
+        "address": "https://dns.google/dns-query",
         "address_resolver": "dns_local",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "prefer_ipv4",
         "detour": "direct"
       },
       {
         "tag": "dns_second",
-        "address": "https://dns.google/dns-query",
+        "address": "https://cloudflare-dns.com/dns-query",
         "address_resolver": "dns_local",
-        "address_strategy": "ipv6_only",
-        "strategy": "ipv6_only",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "prefer_ipv4",
+        "detour": "direct"
+      },
+      {
+        "tag": "dns_third",
+        "address": "https://dns.quad9.net/dns-query",
+        "address_resolver": "dns_local",
+        "address_strategy": "prefer_ipv4",
+        "strategy": "prefer_ipv4",
         "detour": "direct"
       },
       {
@@ -307,21 +317,51 @@ create_config_file(){
         "rewrite_ttl": 20
       },
       {
-        "rule_set": [
-          "youtube",
-          "google"
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "outbound": "any"
+          },
+          {
+            "rule_set": [
+              "youtube",
+              "google"
+            ]
+          }
+        ],
+        "server": "dns_main",
+        "rewrite_ttl": 20
+      },
+      {
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "outbound": "any"
+          },
+          {
+            "rule_set": "tiktok"
+          }
         ],
         "server": "dns_second",
         "rewrite_ttl": 20
       },
       {
         "outbound": "any",
-        "server": "dns_main",
-        "rewrite_ttl": 25
+        "server": "dns_second",
+        "rewrite_ttl": 20
       }
     ],
+    "final":"dns_second",
     "reverse_mapping": true,
     "independent_cache": true
+  },
+  "ntp": {
+    "server": "time.google.com",
+    "server_port": 123,
+    "interval": "5m0s",
+    "detour": "direct"
   },
   "experimental": {
     "cache_file": {
@@ -380,43 +420,51 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
   "route": {
     "rules": [
       {
+        "protocol": "dns",
+        "outbound": "dns-out"
+      },
+      {
         "type": "logical",
         "mode": "or",
         "rules": [
           {
-            "protocol": "dns"
+            "domain_suffix": [
+                "pikachu.my.id",
+                "windows.net",
+                "live.com"
+            ]
           },
           {
-            "port": 53
+            "domain_keyword": [
+            "googlesyndication",
+            "googleadservices",
+            "appsflyer",
+            "cftunnel",
+            "argotunnel",
+            "microsoftonline",
+            "sharepoint",
+            "openai",
+            "zerotier",
+            "shinigami",
+            "apkomik",
+            "komikav",
+            "cdnkomik",
+            "pojokmanga",
+            "kiryuu",
+            "komikcast",
+            "mangatale",
+            "cosmicscans",
+            "hivescans",
+            "manhwalist"
+            ]
+          },
+          {
+            "rule_set": [
+            "onedrive",
+            "microsoft",
+            "openai"
+            ]
           }
-        ],
-        "outbound": "dns-out"
-      },
-      {
-        "domain_suffix": [
-          ".googlesyndication.com",
-          ".googleadservices.com",
-          ".appsflyer.com",
-          "cftunnel.com",
-          ".argotunnel.com",
-          "komikcast.lol",
-          "void-scans.com",
-          "cosmicscans.id",
-          "asuratoon.com",
-          "shinigami.sh",
-          "pikachu.my.id",
-          "microsoftonline.com",
-          "windows.net",
-          "microsoft.com",
-          "live.com",
-          "sharepoint.com",
-          "openai.com",
-          "zerotier.com"
-        ],
-        "rule_set": [
-          "onedrive",
-          "microsoft",
-          "openai"
         ],
         "outbound": "direct"
       },
@@ -436,7 +484,8 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
       {
         "rule_set": [
           "oisd-full",
-          "rule-ads"
+          "rule-ads",
+          "d3ward"
         ],
         "outbound": "TrafficAds"
       },
@@ -454,77 +503,96 @@ cat <<EOF >"${CONFIG_FILE_PATH}/01_outbounds_and_route.json"
         "tag": "oisd-full",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-oisd-full.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "oisd-nsfw",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-oisd-nsfw.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "rule-ads",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-rule-ads.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "d3ward",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-d3ward.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "rule-malicious",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-rule-malicious.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "category-porn",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-category-porn.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "openai",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-openai.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "onedrive",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-onedrive.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "microsoft",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-microsoft.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "youtube",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-youtube.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       },
       {
         "type": "remote",
         "tag": "google",
         "format": "binary",
         "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-google.srs",
-        "download_detour": "direct"
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
+      },
+      {
+        "type": "remote",
+        "tag": "tiktok",
+        "format": "binary",
+        "url": "https://raw.githubusercontent.com/malikshi/sing-box-geo/rule-set-geosite/geosite-tiktok.srs",
+        "download_detour": "direct",
+        "update_interval": "168h0m0s"
       }
     ],
     "final": "direct",
