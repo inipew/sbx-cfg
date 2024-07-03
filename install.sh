@@ -27,7 +27,7 @@ OS_ARCH=''
 SING_BOX_VERSION=''
 
 #script version
-SING_BOX_YES_VERSION='0.2.1'
+SING_BOX_YES_VERSION='0.3.0'
 
 #package download path
 DOWNLAOD_PATH='/usr/local/sing-box'
@@ -970,12 +970,12 @@ map $http_forwarded $proxy_add_forwarded {
 }
 
 map $uri:$http_sec_websocket_key $backend_info {
-    ~^/vless:(.+)$   "127.0.0.1:8001";
-    ~^/vmess:(.+)$   "127.0.0.1:8002";
-    ~^/trojan:(.+)$  "127.0.0.1:8003";
-    ~^/vless:       "127.0.0.1:8004";
-    ~^/vmess:       "127.0.0.1:8005";
-    ~^/trojan:      "127.0.0.1:8006";
+    ~^/vless:(.+)$    "127.0.0.1:8001";
+    ~^/vmess:(.+)$    "127.0.0.1:8002";
+    ~^/trojan:(.+)$   "127.0.0.1:8003";
+    ~^/vless:         "127.0.0.1:8004";
+    ~^/vmess:         "127.0.0.1:8005";
+    ~^/trojan:        "127.0.0.1:8006";
 }
 
 server {
@@ -995,29 +995,39 @@ server {
     listen [::]:2095 so_keepalive=on;
 
     server_name __DOMAIN__;
+
+    client_header_buffer_size 10k;
+    large_client_header_buffers 8 16k;
+    keepalive_timeout 300s;
     
     location / {
         return 404;
     }
 
-    location ~ ^/([^/]+)/ {
-        rewrite ^/([^/]+)/(.*)$ /$2 break;
-        try_files /$backend_info @proxy;
-    }
-
-    location @proxy {
+    location ~ ^/([^/]+)/(vless|vmess|trojan) {
         if ($http_upgrade != "websocket") {
             return 404;
         }
+        rewrite ^/([^/]+)/(.*)$ /$2 break;
+        
         proxy_pass http://$backend_info;
-
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $http_x_forwarded_for;
-        proxy_set_header X-Forwarded-For $http_x_forwarded_for;
-        proxy_read_timeout 52w;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
+        # Mengatur timeout proxy
+        # proxy_connect_timeout 15s;
+        # proxy_read_timeout 3600s;
+        # proxy_send_timeout 3600s;
+
+        # Buffering untuk permintaan HTTP ke proxy
+        # proxy_buffer_size 128k;
+        # proxy_buffers 4 256k;
+        # proxy_busy_buffers_size 256k;
+        
         proxy_redirect off;
     }
 }
@@ -1042,42 +1052,48 @@ server {
     ssl_certificate /etc/v2ray-agent/tls/__DOMAIN__.crt;
     ssl_certificate_key /etc/v2ray-agent/tls/__DOMAIN__.key;
     ssl_session_timeout 50m;
-    ssl_prefer_server_ciphers off;
+    ssl_prefer_server_ciphers  on;
+    ssl_session_cache       shared:SSL:10m;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
     
-    ssl_session_tickets on;
     ssl_stapling on;
     ssl_stapling_verify on;
-    resolver 8.8.8.8 valid=60s;
+    resolver 1.1.1.1 valid=60s;
     resolver_timeout 2s;
     
-    client_header_timeout 1071906480m;
-    keepalive_timeout 1071906480m;
+    client_header_buffer_size 10k;
+    large_client_header_buffers 8 16k;
+    keepalive_timeout 300s;
 
     location / {
         return 404;
     }
 
-    location ~ ^/([^/]+)/ {
-        rewrite ^/([^/]+)/(.*)$ /$2 break;
-        try_files /$backend_info @proxy;
-    }
-
-    location @proxy {
+    location ~ ^/([^/]+)/(vless|vmess|trojan) {
         if ($http_upgrade != "websocket") {
             return 404;
         }
-    
+        rewrite ^/([^/]+)/(.*)$ /$2 break;
+        
         proxy_pass http://$backend_info;
-
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 52w;
+        
+        # Mengatur timeout proxy
+        # proxy_connect_timeout 15s;
+        # proxy_read_timeout 3600s;
+        # proxy_send_timeout 3600s;
+
+        # Buffering untuk permintaan HTTP ke proxy
+        # proxy_buffer_size 128k;
+        # proxy_buffers 4 256k;
+        # proxy_busy_buffers_size 256k;
+        
         proxy_redirect off;
     }
 }
@@ -1496,42 +1512,13 @@ generate_account_details() {
     echo "vless://${id}@${DOMAIN}:${currentDefaultNTLSPort}?encryption=none&security=none&type=${network}&host=${DOMAIN}&sni=${DOMAIN}&fp=chrome&path=${currentPath}#${remarks}_${protocol}_${network}_ntls"
   
   elif [ "${protocol}" == "vmess" ]; then
-    # vmessJson_tls='{
-    #   "v": 2,
-    #   "ps": "'${remarks}'-'${protocol}'-TLS",
-    #   "add": "'${DOMAIN}'",
-    #   "port": "'${currentDefaultTLSPort}'",
-    #   "id": "'${id}'",
-    #   "aid": 0,
-    #   "net": "'${network}'",
-    #   "path": "'${currentPath}'",
-    #   "type": "none",
-    #   "host": "'${DOMAIN}'",
-    #   "tls": "tls"
-    # }'
-    # vmesstls=$(convert_to_base64 "${vmessJson_tls}")
+    vmesstls="vmess://$(create_vmess_link "${remarks}-${protocol}-${network}-TLS" "${DOMAIN}" "${currentDefaultTLSPort}" "${id}" "${network}" "${currentPath}" "tls")"
+    vmessntls="vmess://$(create_vmess_link "${remarks}-${protocol}-${network}-nTLS" "${DOMAIN}" "${currentDefaultNTLSPort}" "${id}" "${network}" "${currentPath}" "none")"
     echo "Link ${protocol} TLS:"
-    vmesstls="vmess://$(create_vmess_link "'${remarks}'-'${protocol}'-'${network}'-TLS" "'${DOMAIN}'" "'${currentDefaultTLSPort}'" "'${id}'" "'${network}'" "'${currentPath}'" "'${DOMAIN}'" "tls")"
     echo "${vmesstls}"
     echo ""
-    vmessntls="vmess://$(create_vmess_link "'${remarks}'-'${protocol}'-'${network}'-nTLS" "'${DOMAIN}'" "'${currentDefaultNTLSPort}'" "'${id}'" "'${network}'" "'${currentPath}'" "'${DOMAIN}'" "none")"
+    echo "Link ${protocol} nTLS:"
     echo "${vmessntls}"
-    # echo "Link ${protocol} nTLS:"
-    # vmessJson_ntls='{
-    #   "v": 2,
-    #   "ps": "'${remarks}'-'${protocol}'-nTLS",
-    #   "add": "'${DOMAIN}'",
-    #   "port": "'${currentDefaultNTLSPort}'",
-    #   "id": "'${id}'",
-    #   "aid": 0,
-    #   "net": "'${network}'",
-    #   "path": "'${currentPath}'",
-    #   "type": "none",
-    #   "host": "'${DOMAIN}'",
-    #   "tls": "none"
-    # }'
-    # vmessntls=$(convert_to_base64 "$vmessJson_ntls")
-    # echo "vmess://${vmessntls}"
   elif [ "${protocol}" == "trojan" ]; then
     echo "Link ${protocol} TLS:"
     echo "trojan://${id}@${DOMAIN}:${currentDefaultTLSPort}?path=${currentPath}&security=tls&host=${DOMAIN}&type=${network}&sni=${DOMAIN}#${remarks}_${protocol}_${network}_tls"
@@ -1551,7 +1538,7 @@ create_vmess_link() {
     local ps=$1
     local domain=$2
     local port=$3
-    local $uuid=$4
+    local id=$4
     local net=$5
     local path=$6
     local tls=$7
@@ -1561,7 +1548,7 @@ create_vmess_link() {
   "ps": "$ps",
   "add": "$domain",
   "port": "$port",
-  "id": "$uuid",
+  "id": "$id",
   "aid": "0",
   "net": "$net",
   "path": "$path",
